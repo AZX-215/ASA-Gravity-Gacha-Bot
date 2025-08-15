@@ -1,8 +1,83 @@
 [
     {
         "name": "pego1",
-        "teleporter": "pego1",
-        "delay": 3300
+        "teleporter": "PEGO #01",
+        "delay": 4400
+    },
+    {
+        "name": "pego2",
+        "teleporter": "PEGO #02",
+        "delay": 4400
+    },
+    {
+        "name": "pego3",
+        "teleporter": "PEGO #03",
+        "delay": 4400
+    },
+    {
+        "name": "pego4",
+        "teleporter": "PEGO #04",
+        "delay": 4400
+    },
+    {
+        "name": "pego5",
+        "teleporter": "PEGO #05",
+        "delay": 4400
+    },
+    {
+        "name": "pego6",
+        "teleporter": "PEGO #06",
+        "delay": 4400
+    },
+    {
+        "name": "pego7",
+        "teleporter": "PEGO #07",
+        "delay": 4400
+    },
+    {
+        "name": "pego8",
+        "teleporter": "PEGO #08",
+        "delay": 4400
+    },
+    {
+        "name": "pego9",
+        "teleporter": "PEGO #09",
+        "delay": 4400
+    },
+    {
+        "name": "pego10",
+        "teleporter": "PEGO #10",
+        "delay": 4400
+    },
+    {
+        "name": "pego11",
+        "teleporter": "PEGO #11",
+        "delay": 4400
+    },
+    {
+        "name": "pego12",
+        "teleporter": "PEGO #12",
+        "delay": 4400
+    },
+    {
+        "name": "pego13",
+        "teleporter": "PEGO #13",
+        "delay": 4400
+    },
+    {
+        "name": "pego14",
+        "teleporter": "PEGO #14",
+        "delay": 4400
+    },
+    {
+        "name": "pego15",
+        "teleporter": "PEGO #15",
+        "delay": 4400
+    },
+    {
+        "name": "pego16",
+        "teleporter": "PEGO #16",
+        "delay": 4400
     }
 
 ]
