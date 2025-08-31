@@ -30,6 +30,4 @@ if __name__ =="__main__":
 
     pass
 
-# HDR handling toggle.
-# False = SDR Default; True = HDR Enabled
-hdr_enabled: bool = True
+
