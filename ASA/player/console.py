@@ -49,7 +49,7 @@ def console_ccc():
                 break
         if is_open():
             enter_data("ccc")
-            time.sleep(0.1*settings.lag_offset)
+            time.sleep(0.2*settings.lag_offset)
             utils.press_key("Enter")
             
             time.sleep(0.1*settings.lag_offset) # slow to try and prevent opening clipboard to empty data
