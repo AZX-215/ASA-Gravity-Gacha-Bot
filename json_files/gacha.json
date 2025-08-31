@@ -30,7 +30,7 @@
         "side": "left"
     },
     {
-        "name": "03 Right (Crystal)",
+        "name": "03 Right",
         "teleporter": "Gacha *03",
         "resource_type": "element",
         "side": "right"
@@ -84,7 +84,7 @@
         "side": "right"
     },
     {
-        "name": "08 Left (White Pearls)",
+        "name": "08 Left",
         "teleporter": "Gacha *08",
         "resource_type": "element",
         "side": "left"
@@ -444,17 +444,18 @@
         "side": "right"
     },
     {
-        "name": "38 Left (Sap)",
+        "name": "38 Left",
         "teleporter": "Gacha *38",
         "resource_type": "element",
         "side": "left"
     },
     {
-        "name": "38 Right (Sap)",
+        "name": "38 Right (Flint)",
         "teleporter": "Gacha *38",
         "resource_type": "element",
         "side": "right"
-    },{
+    },
+    {
         "name": "39 Left",
         "teleporter": "Gacha *39",
         "resource_type": "element",
@@ -465,15 +466,88 @@
         "teleporter": "Gacha *39",
         "resource_type": "element",
         "side": "right"
-    },{
-        "name": "40 Left (Clay)",
+    },
+    {
+        "name": "40 Left",
         "teleporter": "Gacha *40",
         "resource_type": "element",
         "side": "left"
     },
     {
-        "name": "40 Right (Clay)",
+        "name": "40 Right (red sap)",
         "teleporter": "Gacha *40",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "41 Left",
+        "teleporter": "Gacha *41",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "41 Right",
+        "teleporter": "Gacha *41",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "42 Left",
+        "teleporter": "Gacha *42",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "42 Right",
+        "teleporter": "Gacha *42",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "43 Left",
+        "teleporter": "Gacha *43",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "43 Right",
+        "teleporter": "Gacha *43",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "44 Left",
+        "teleporter": "Gacha *44",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "44 Right",
+        "teleporter": "Gacha *44",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "45 Left",
+        "teleporter": "Gacha *45",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "45 Right",
+        "teleporter": "Gacha *45",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "46 Left",
+        "teleporter": "Gacha *46",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "46 Right",
+        "teleporter": "Gacha *46",
         "resource_type": "element",
         "side": "right"
     }
