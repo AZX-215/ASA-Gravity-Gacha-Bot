@@ -414,7 +414,7 @@
         "side": "left"
     },
     {
-        "name": "35 Right (White Pearls)",
+        "name": "35 Right (Black Pearls)",
         "teleporter": "Gacha *35",
         "resource_type": "element",
         "side": "right"
@@ -438,7 +438,7 @@
         "side": "left"
     },
     {
-        "name": "37 Right (Flint)",
+        "name": "37 Right",
         "teleporter": "Gacha *37",
         "resource_type": "element",
         "side": "right"
@@ -450,7 +450,7 @@
         "side": "left"
     },
     {
-        "name": "38 Right (Flint)",
+        "name": "38 Right (Blue Sap)",
         "teleporter": "Gacha *38",
         "resource_type": "element",
         "side": "right"
@@ -548,6 +548,54 @@
     {
         "name": "46 Right",
         "teleporter": "Gacha *46",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "47 Left",
+        "teleporter": "Gacha *47",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "47 Right",
+        "teleporter": "Gacha *47",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "48 Left",
+        "teleporter": "Gacha *48",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "48 Right",
+        "teleporter": "Gacha *48",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "49 Left",
+        "teleporter": "Gacha *49",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "49 Right",
+        "teleporter": "Gacha *49",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "50 Left",
+        "teleporter": "Gacha *50",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "50 Right",
+        "teleporter": "Gacha *50",
         "resource_type": "element",
         "side": "right"
     }
