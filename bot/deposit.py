@@ -155,6 +155,21 @@ def collect_grindables(metadata):
     time.sleep(0.5*settings.lag_offset) # stopping hitting E on the fabricator and turing it off
     dedi_deposit(settings.height_grind)
     time.sleep(0.2*settings.lag_offset)
+
+    # NEW: Dump POLY into the Megalab to the left, then recenter
+    angle = getattr(settings, "megalab_left_degrees", 30)
+    utils.turn_left(angle)
+    time.sleep(0.5*settings.lag_offset)  # guard to avoid toggling Megalab off
+    ASA.strucutres.inventory.open()
+    if template.template_await_true(template.check_template, 1, "inventory", 0.7):
+        ASA.player.player_inventory.search_in_inventory("poly")
+        ASA.player.player_inventory.transfer_all_inventory()
+        time.sleep(0.2*settings.lag_offset)
+        ASA.player.player_inventory.search_in_inventory("")  # clear filter
+        ASA.strucutres.inventory.close()
+        template.template_await_false(template.check_template, 1, "inventory", 0.7)
+    utils.turn_right(angle)
+
     drop_useless()
 
 def vaults(metadata):
