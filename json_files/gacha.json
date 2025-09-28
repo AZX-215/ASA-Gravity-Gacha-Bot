@@ -360,7 +360,7 @@
         "side": "right"
     },
     {
-        "name": "31 Left",
+        "name": "31 Left (Black Pearls)",
         "teleporter": "Gacha *31",
         "resource_type": "element",
         "side": "left"
@@ -414,7 +414,7 @@
         "side": "left"
     },
     {
-        "name": "35 Right (Black Pearls)",
+        "name": "35 Right",
         "teleporter": "Gacha *35",
         "resource_type": "element",
         "side": "right"
@@ -474,7 +474,7 @@
         "side": "left"
     },
     {
-        "name": "40 Right (red sap)",
+        "name": "40 Right (Red Sap)",
         "teleporter": "Gacha *40",
         "resource_type": "element",
         "side": "right"
@@ -570,7 +570,7 @@
         "side": "left"
     },
     {
-        "name": "48 Right",
+        "name": "48 Right (Black Pearls)",
         "teleporter": "Gacha *48",
         "resource_type": "element",
         "side": "right"
@@ -598,6 +598,34 @@
         "teleporter": "Gacha *50",
         "resource_type": "element",
         "side": "right"
+    },
+    {
+        "name": "51 Left (Collect)",
+        "teleporter": "Gacha *51 Collect",
+        "resource_type": "collect",
+        "side": "left",
+        "depo_tp": "PHOENIXSNAILDEPO"
+    },
+    {
+        "name": "51 Right (Collect)",
+        "teleporter": "Gacha *51 Collect",
+        "resource_type": "collect",
+        "side": "right",
+        "depo_tp": "PHOENIXSNAILDEPO"
+    },
+    {
+        "name": "52 Left (Collect)",
+        "teleporter": "Gacha *52 Collect",
+        "resource_type": "collect",
+        "side": "left",
+        "depo_tp": "PHOENIXSNAILDEPO"
+    },
+    {
+        "name": "52 Right (Collect)",
+        "teleporter": "Gacha *52 Collect",
+        "resource_type": "collect",
+        "side": "right",
+        "depo_tp": "PHOENIXSNAILDEPO"
     }
 
 ]
