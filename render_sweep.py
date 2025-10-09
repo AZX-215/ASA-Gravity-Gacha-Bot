@@ -1,100 +1,140 @@
+# render_sweep.py
 from __future__ import annotations
-import time
-import os
+from pathlib import Path
+import sys
+import importlib, importlib.util
 import json
-import logging
+import time
 from datetime import datetime, timedelta
+from typing import List
 
 import settings
 
-# try imports across possible layouts
 try:
     from logs import gachalogs as logs
 except Exception:
     import gachalogs as logs  # type: ignore
 
-# Ensure logs directory exists for external watchers
-os.makedirs("logs", exist_ok=True)
+BASE_DIR = Path(__file__).resolve().parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 
-def _load_station_names():
-    # Prefer custom_stations if present
+def _import_module(name: str):
+    """Import module by name, else load from file next to this script."""
     try:
-        import custom_stations
-        if hasattr(custom_stations, "get_custom_stations"):
-            data = custom_stations.get_custom_stations()
-            names = [s.get("name") if isinstance(s, dict) else getattr(s, "name", None) for s in data]
-            return [n for n in names if n]
-    except Exception as e:
-        logs.logger.debug(f"custom_stations list fallback due to: {e}")
-    # Fallback: read stations.json assuming list of objects with "name"
-    try:
-        with open(os.path.join("stations.json"), "r", encoding="utf-8") as f:
-            data = json.load(f)
-        names = [x.get("name") for x in data if isinstance(x, dict) and x.get("name")]
-        return names
-    except Exception as e:
-        logs.logger.error(f"Failed to load stations.json: {e}")
-        return []
+        return importlib.import_module(name)
+    except ModuleNotFoundError:
+        p = BASE_DIR / f"{name}.py"
+        if p.exists():
+            spec = importlib.util.spec_from_file_location(name, str(p))
+            mod = importlib.util.module_from_spec(spec)  # type: ignore
+            assert spec and spec.loader
+            spec.loader.exec_module(mod)  # type: ignore
+            sys.modules[name] = mod
+            return mod
+        raise
 
-# Abstractions that call your existing helpers without re-implementing logic
+def _load_station_names() -> List[str]:
+    # custom_stations.get_custom_stations() -> list of dicts with "name"
+    try:
+        cs = _import_module("custom_stations")
+        if hasattr(cs, "get_custom_stations"):
+            data = cs.get_custom_stations()
+            if isinstance(data, list) and data:
+                names = [x.get("name") for x in data if isinstance(x, dict) and x.get("name")]
+                if names:
+                    return names
+    except Exception as e:
+        logs.logger.debug(f"_load_station_names: custom_stations list fallback due to: {e}")
+
+    # stations.json in repo root or json_files/
+    for p in (BASE_DIR / "stations.json", BASE_DIR / "json_files" / "stations.json"):
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                names = [d.get("name") for d in data if isinstance(d, dict) and d.get("name")]
+            elif isinstance(data, dict):
+                names = list(data.keys())
+            else:
+                names = []
+            if names:
+                return names
+        except FileNotFoundError:
+            continue
+        except Exception as e:
+            logs.logger.error(f"_load_station_names: Failed to load {p.name}: {e}")
+
+    # stations.py with STATIONS = [ {'name': ...}, ... ]
+    try:
+        sp = _import_module("stations")
+        if hasattr(sp, "STATIONS"):
+            names = [s["name"] for s in getattr(sp, "STATIONS") if isinstance(s, dict) and s.get("name")]
+            if names:
+                return names
+    except Exception as e:
+        logs.logger.debug(f"_load_station_names: stations.py fallback failed: {e}")
+
+    logs.logger.warning("RenderSweep: no stations found")
+    return []
 
 def _leave_tekpod():
-    # Respect existing behavior. Try multiple known entry points.
+    # prefer render.leave_tekpod()
     try:
-        import render as _r
+        _r = _import_module("render")
         if hasattr(_r, "leave_tekpod"):
             logs.logger.debug("leave_tekpod via render.leave_tekpod")
             _r.leave_tekpod()
             return
     except Exception as e:
-        logs.logger.debug(f"render.leave_tekpod failed: {e}")
+        logs.logger.debug(f"_leave_tekpod: render.leave_tekpod failed: {e}")
+
+    # fallback to utils.leave_tekpod()
     try:
-        import utils
+        utils = _import_module("utils")
         if hasattr(utils, "leave_tekpod"):
             logs.logger.debug("leave_tekpod via utils.leave_tekpod")
             utils.leave_tekpod()
             return
     except Exception as e:
-        logs.logger.debug(f"utils.leave_tekpod failed: {e}")
+        logs.logger.debug(f"_leave_tekpod: utils.leave_tekpod failed: {e}")
+
     logs.logger.info("leave_tekpod helper not found; continuing without explicit exit")
 
 def _teleport_to(name: str):
-    # Use metadata + teleporter helper if available
+    # obtain metadata if available
     meta = None
     try:
-        import custom_stations
-        meta = custom_stations.get_station_metadata(name)
+        cs = _import_module("custom_stations")
+        if hasattr(cs, "get_station_metadata"):
+            meta = cs.get_station_metadata(name)
     except Exception:
-        pass
+        meta = None
+
     try:
-        import teleporter
-        if hasattr(teleporter, "teleport_not_default") and meta is not None:
-            logs.logger.debug(f"teleport_not_default -> {getattr(meta,'name',name)}")
-            return teleporter.teleport_not_default(meta)
-        if hasattr(teleporter, "teleport"):
-            logs.logger.debug(f"teleport -> {name}")
-            return teleporter.teleport(name)
+        tp = _import_module("teleporter")
+        if meta is not None and hasattr(tp, "teleport_not_default"):
+            return tp.teleport_not_default(meta)
+        if hasattr(tp, "teleport"):
+            return tp.teleport(name)
+        raise RuntimeError("teleporter has no teleport function")
     except Exception as e:
-        logs.logger.error(f"teleport helper failed for '{name}': {e}")
+        logs.logger.error(f"_teleport_to: teleport helper failed for '{name}': {e}")
         raise
 
 def _open_tribe_logs():
-    try:
-        import tribelog
-        if hasattr(tribelog, "open"):
-            tribelog.open()
-            return
-    except Exception as e:
-        logs.logger.error(f"tribelog.open failed: {e}")
-        raise
+    tr = _import_module("tribelog")
+    if hasattr(tr, "open"):
+        return tr.open()
+    raise RuntimeError("tribelog.open not found")
 
 def _close_tribe_logs():
     try:
-        import tribelog
-        if hasattr(tribelog, "close"):
-            tribelog.close()
+        tr = _import_module("tribelog")
+        if hasattr(tr, "close"):
+            tr.close()
     except Exception as e:
-        logs.logger.debug(f"tribelog.close failed: {e}")
+        logs.logger.debug(f"_close_tribe_logs: {e}")
 
 def _return_to_bed(name: str):
     try:
@@ -130,7 +170,7 @@ class RenderSweepTask:
 
     def on_complete(self, manager):
         minutes = int(getattr(settings, "RENDER_REPEAT_MINUTES", 60))
-        delay = max(60, minutes * 60)  # minimum 60s
+        delay = max(60, minutes * 60)
         manager.enqueue_delayed(RenderSweepTask(self._stations, self.priority), delay, priority=self.priority)
 
 def build_render_task():
