@@ -1,19 +1,23 @@
 # task_manager.py
 from __future__ import annotations
-import heapq, threading, time
+import heapq
+import threading
+import time
 from typing import Any, List, Optional, Tuple
 
+# ---- logging hook used by repo (do not change) ----
 try:
     from logs import gachalogs as logs
 except Exception:
     import gachalogs as logs  # type: ignore
 
 import settings
-    started: bool = False
-        _scheduler_thread = None
 
+# ---- module state ----
+started: bool = False
+_scheduler_thread: Optional[threading.Thread] = None
 
-# -------- activity log that discordbot reads --------
+# ---- small in-memory activity log that discordbot reads ----
 class _RollingLog:
     def __init__(self, capacity: int = 400):
         self._buf: List[str] = []
@@ -34,7 +38,7 @@ class _RollingLog:
 
 EVENT_LOG = _RollingLog()
 
-# -------- queues that discordbot renders --------
+# ---- queues that discordbot renders ----
 _SEQ = 0
 _SEQ_LOCK = threading.Lock()
 def _next_seq() -> int:
@@ -44,8 +48,8 @@ def _next_seq() -> int:
         return _SEQ
 
 class _ActiveQueue:
+    # (priority, seq, enq_ts, task)
     def __init__(self):
-        # (priority, seq, enq_ts, task)
         self._heap: List[Tuple[int, int, float, Any]] = []
         self._lock = threading.Lock()
 
@@ -67,8 +71,8 @@ class _ActiveQueue:
             return heapq.heappop(self._heap)
 
 class _WaitingQueue:
+    # (exec_epoch, seq, priority, task)
     def __init__(self):
-        # (exec_epoch, seq, priority, task)
         self._heap: List[Tuple[float, int, int, Any]] = []
         self._lock = threading.Lock()
 
@@ -95,7 +99,7 @@ class _WaitingQueue:
         with self._lock:
             return heapq.heappop(self._heap)
 
-# -------- scheduler --------
+# ---- scheduler ----
 class TaskScheduler:
     def __init__(self):
         self.active_queue = _ActiveQueue()
@@ -165,24 +169,57 @@ class TaskScheduler:
 
 scheduler = TaskScheduler()
 
-def main() -> None:
-    EVENT_LOG.add("bootstrap")
+# ---- lifecycle helpers expected by main/bot ----
+def is_running() -> bool:
+    return started
+
+def start_background() -> None:
+    """Start scheduler in a background thread. Non-blocking."""
+    global _scheduler_thread
+    if is_running():
+        return
+    _scheduler_thread = threading.Thread(target=main, name="task-scheduler", daemon=True)
+    _scheduler_thread.start()
+
+def stop_background(timeout: float = 3.0) -> None:
+    """Signal stop and optionally join."""
+    scheduler.stop()
+    t = _scheduler_thread
+    if t and t.is_alive():
+        t.join(timeout)
+
+# ---- bootstrap ----
+def _bootstrap_tasks() -> None:
+    # Render (lowest priority by default)
     try:
-        # keep gacha/pego gated by toggles; render at lowest priority
         if getattr(settings, "RENDER_ENABLED", True):
             from render_sweep import build_render_task
             t = build_render_task()
             if t:
                 scheduler.enqueue(t, priority=int(getattr(settings, "RENDER_PRIORITY", 9999)))
+    except Exception as e:
+        logs.logger.error(f"render bootstrap failed: {e}")
+
+    # Placeholders for gacha/pego; real enqueues stay in their modules
+    try:
         if getattr(settings, "GACHA_ENABLED", False):
             EVENT_LOG.add("gacha: enabled")
         if getattr(settings, "PEGO_ENABLED", False):
             EVENT_LOG.add("pego: enabled")
     except Exception as e:
-        logs.logger.error(f"bootstrap failed: {e}")
-    scheduler.run()
+        logs.logger.error(f"toggle check failed: {e}")
 
+def main() -> None:
+    global started
+    if started:
+        return
+    started = True
+    EVENT_LOG.add("bootstrap")
+    try:
+        _bootstrap_tasks()
+        scheduler.run()  # blocks until stop()
+    finally:
+        started = False
 
-
-
-
+if __name__ == "__main__":
+    main()
