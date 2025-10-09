@@ -1,186 +1,184 @@
-import heapq
-import time
-import json
-import bot.stations as stations
-import logs.gachalogs as logs
-from threading import Lock, Thread 
+# task_manager.py
+from __future__ import annotations
+import heapq, threading, time
+from typing import Any, List, Optional, Tuple
 
-global scheduler
-global started
-started = False
-class SingletonMeta(type):
+try:
+    from logs import gachalogs as logs
+except Exception:
+    import gachalogs as logs  # type: ignore
 
-    _instances = {}
+import settings
 
-    _lock: Lock = Lock()
+# -------- activity log that discordbot reads --------
+class _RollingLog:
+    def __init__(self, capacity: int = 400):
+        self._buf: List[str] = []
+        self._cap = capacity
+        self._lock = threading.Lock()
 
-    def __call__(cls,*args,**kwargs):
+    def add(self, msg: str) -> None:
+        ts = time.strftime("%H:%M:%S")
+        line = f"{ts} {msg}"
+        with self._lock:
+            self._buf.append(line)
+            if len(self._buf) > self._cap:
+                del self._buf[: len(self._buf) - self._cap]
 
-        with cls._lock:
-            if cls not in cls._instances:
-                instance = super().__call__(*args,**kwargs)
-                cls._instances[cls] = instance
-        return cls._instances[cls]
+    def tail(self, n: int) -> List[str]:
+        with self._lock:
+            return self._buf[-n:] if n > 0 else []
 
-class priority_queue_exc:
+EVENT_LOG = _RollingLog()
+
+# -------- queues that discordbot renders --------
+_SEQ = 0
+_SEQ_LOCK = threading.Lock()
+def _next_seq() -> int:
+    global _SEQ
+    with _SEQ_LOCK:
+        _SEQ += 1
+        return _SEQ
+
+class _ActiveQueue:
     def __init__(self):
-        self.queue = []  
+        # (priority, seq, enq_ts, task)
+        self._heap: List[Tuple[int, int, float, Any]] = []
+        self._lock = threading.Lock()
 
-    def add(self, task, priority, execution_time):
-        heapq.heappush(self.queue, (execution_time, len(self.queue), priority, task))
+    @property
+    def queue(self) -> List[Tuple[int, int, float, Any]]:
+        with self._lock:
+            return list(self._heap)
 
-    def pop(self):
-        if not self.is_empty():
-            return heapq.heappop(self.queue)
-        return None
+    def is_empty(self) -> bool:
+        with self._lock:
+            return not self._heap
 
-    def peek(self):
-        if not self.is_empty():
-            return self.queue[0]
-        return None
+    def push(self, priority: int, task: Any) -> None:
+        with self._lock:
+            heapq.heappush(self._heap, (priority, _next_seq(), time.time(), task))
 
-    def is_empty(self):
-        return len(self.queue) == 0
-    
-class priority_queue_prio:
+    def pop(self) -> Tuple[int, int, float, Any]:
+        with self._lock:
+            return heapq.heappop(self._heap)
+
+class _WaitingQueue:
     def __init__(self):
-        self.queue = []  
+        # (exec_epoch, seq, priority, task)
+        self._heap: List[Tuple[float, int, int, Any]] = []
+        self._lock = threading.Lock()
 
-    def add(self, task, priority, execution_time):
-        heapq.heappush(self.queue, (priority, execution_time, len(self.queue), task))
+    @property
+    def queue(self) -> List[Tuple[float, int, int, Any]]:
+        with self._lock:
+            return list(self._heap)
 
-    def pop(self):
-        if not self.is_empty():
-            return heapq.heappop(self.queue)
-        return None
+    def is_empty(self) -> bool:
+        with self._lock:
+            return not self._heap
 
-    def peek(self):
-        if not self.is_empty():
-            return self.queue[0]
-        return None
+    def push(self, when_epoch: float, priority: int, task: Any) -> None:
+        with self._lock:
+            heapq.heappush(self._heap, (when_epoch, _next_seq(), priority, task))
 
-    def is_empty(self):
-        return len(self.queue) == 0
+    def peek_ready(self, now_epoch: float) -> Optional[Tuple[float, int, int, Any]]:
+        with self._lock:
+            if not self._heap:
+                return None
+            return self._heap[0] if self._heap[0][0] <= now_epoch else None
 
-class task_scheduler(metaclass=SingletonMeta):
+    def pop(self) -> Tuple[float, int, int, Any]:
+        with self._lock:
+            return heapq.heappop(self._heap)
+
+# -------- scheduler --------
+class TaskScheduler:
     def __init__(self):
-        if not hasattr(self, 'initialized'):  
-            self.active_queue = priority_queue_prio() 
-            self.waiting_queue = priority_queue_exc()  
-            self.initialized = True 
-            self.prev_task_name = ""
+        self.active_queue = _ActiveQueue()
+        self.waiting_queue = _WaitingQueue()
+        self._stop = threading.Event()
 
-    def add_task(self, task):
-        
-        if not getattr(task, 'has_run_before', False):
-            next_execution_time = time.time()  
+    def enqueue(self, task: Any, priority: Optional[int] = None) -> None:
+        pri = int(getattr(task, "priority", 1000) if priority is None else priority)
+        EVENT_LOG.add(f"enqueue -> {getattr(task, 'name', 'task')} p={pri}")
+        self.active_queue.push(pri, task)
+
+    def enqueue_delayed(self, task: Any, delay_seconds: int, priority: Optional[int] = None) -> None:
+        run_at = time.time() + max(0, delay_seconds)
+        pri = int(getattr(task, "priority", 1000) if priority is None else priority)
+        EVENT_LOG.add(f"enqueue@{int(run_at)} -> {getattr(task, 'name', 'task')} p={pri}")
+        self.waiting_queue.push(run_at, pri, task)
+
+    def enqueue_at(self, task: Any, run_at, priority: Optional[int] = None) -> None:
+        if isinstance(run_at, (int, float)):
+            epoch = float(run_at)
         else:
-            next_execution_time = time.time() + task.get_requeue_delay()  
+            try:
+                epoch = run_at.timestamp()
+            except Exception:
+                epoch = time.time()
+        pri = int(getattr(task, "priority", 1000) if priority is None else priority)
+        EVENT_LOG.add(f"enqueue@{int(epoch)} -> {getattr(task, 'name', 'task')} p={pri}")
+        self.waiting_queue.push(epoch, pri, task)
 
-        task.has_run_before = True
-    
-        self.waiting_queue.add(task, task.get_priority_level(), next_execution_time)
-        print(f"Added task {task.name} to waiting queue ") # might need to remove this if you have LOADS OF stations causing long messages
+    def stop(self) -> None:
+        self._stop.set()
 
-            
-    def run(self):
-        while True:
-            current_time = time.time()
+    def run(self) -> None:
+        EVENT_LOG.add("scheduler: start")
+        while not self._stop.is_set():
+            now = time.time()
 
-            self.move_ready_tasks_to_active_queue(current_time)
-            
-            if not self.active_queue.is_empty():
-                self.execute_task(current_time)
-            else:
-                time.sleep(5)
+            # promote ready waiting tasks
+            while True:
+                ready = self.waiting_queue.peek_ready(now)
+                if ready is None:
+                    break
+                self.waiting_queue.pop()
+                _, _, pri, task = ready
+                self.active_queue.push(pri, task)
 
-    def move_ready_tasks_to_active_queue(self, current_time):
-        
-        while not self.waiting_queue.is_empty():
-            task_tuple = self.waiting_queue.peek()
-            exec_time, _, priority, task = task_tuple
+            if self.active_queue.is_empty():
+                time.sleep(0.1)
+                continue
 
-            if exec_time <= current_time:
-                self.waiting_queue.pop()  
-                self.active_queue.add(task, priority, exec_time)  
-                
-            else:
-                break  
+            pri, _, _, task = self.active_queue.pop()
+            name = getattr(task, "name", "task")
+            EVENT_LOG.add(f"run -> {name} p={pri}")
+            try:
+                task.run()
+            except Exception as e:
+                logs.logger.error(f"task {name} failed: {e}")
+                EVENT_LOG.add(f"error -> {name}: {e}")
+            finally:
+                if hasattr(task, "on_complete"):
+                    try:
+                        task.on_complete(self)
+                    except Exception as e:
+                        logs.logger.error(f"on_complete {name} failed: {e}")
+                EVENT_LOG.add(f"done -> {name}")
+            time.sleep(0.05)
 
-    def execute_task(self, current_time):
-        
-        task_tuple = self.active_queue.pop()  
-        exec_time,priority , _, task = task_tuple
+scheduler = TaskScheduler()
 
-        if exec_time <= current_time:
-            
-            if task.name != self.prev_task_name:
-                logs.logger.info(f"Executing task: {task.name}")
-            task.execute()  
-            
-            self.prev_task_name = task.name
-            if task.name != "pause":
-                self.move_to_waiting_queue(task)
-            else:
-                print("pause task skipping adding back ")
-        else:
-            
-            self.active_queue.add(task, priority, exec_time)
-
-    def move_to_waiting_queue(self, task):
-        logs.logger.debug(f"adding {task.name} to waiting queue" ) 
-        next_execution_time = time.time() + task.get_requeue_delay()
-        priority_level = task.get_priority_level()
-        self.waiting_queue.add(task,priority_level , next_execution_time)
-
-
-
-def load_resolution_data(file_path):
+def main() -> None:
+    EVENT_LOG.add("bootstrap")
     try:
-        with open(file_path, 'r') as file:
-            data = file.read().strip()
-            if not data:
-                logs.logger.warning(f"warning: {file_path} is empty no tasks added.")
-                return []
-            return json.loads(data)
-    except (json.JSONDecodeError, FileNotFoundError) as e:
-        print(f"error loading JSON from {file_path}: {e}")
-        return []
-
-
-def main():
-    global scheduler
-    global started
-    scheduler = task_scheduler()
-    
-    pego_data = load_resolution_data("json_files/pego.json")
-    for entry_pego in pego_data:
-        name = entry_pego["name"]
-        teleporter = entry_pego["teleporter"]
-        delay = entry_pego["delay"]
-        task = stations.pego_station(name,teleporter,delay)
-        scheduler.add_task(task)
-
-    gacha_data = load_resolution_data("json_files/gacha.json")
-    for entry_gacha in gacha_data:
-        name = entry_gacha["name"]
-        teleporter = entry_gacha["teleporter"]
-        direction = entry_gacha["side"]
-        resource = entry_gacha["resource_type"]
-        if resource == "collect":
-            depo = entry_gacha["depo_tp"]
-            task = stations.snail_pheonix(name,teleporter,direction,depo)
-        else:
-            task = stations.gacha_station(name, teleporter, direction)
-        scheduler.add_task(task)
-        
-    scheduler.add_task(stations.render_station())
-    logs.logger.info("scheduler now running")
-    started = True
+        # keep gacha/pego gated by toggles; render at lowest priority
+        if getattr(settings, "RENDER_ENABLED", True):
+            from render_sweep import build_render_task
+            t = build_render_task()
+            if t:
+                scheduler.enqueue(t, priority=int(getattr(settings, "RENDER_PRIORITY", 9999)))
+        if getattr(settings, "GACHA_ENABLED", False):
+            EVENT_LOG.add("gacha: enabled")
+        if getattr(settings, "PEGO_ENABLED", False):
+            EVENT_LOG.add("pego: enabled")
+    except Exception as e:
+        logs.logger.error(f"bootstrap failed: {e}")
     scheduler.run()
 
-if __name__ == "__main__":
-    time.sleep(2)
-    main()
+
 
 
