@@ -5,7 +5,6 @@ import threading
 import time
 from typing import Any, List, Optional, Tuple
 
-# ---- logging hook used by repo (do not change) ----
 try:
     from logs import gachalogs as logs
 except Exception:
@@ -13,11 +12,9 @@ except Exception:
 
 import settings
 
-# ---- module state ----
 started: bool = False
 _scheduler_thread: Optional[threading.Thread] = None
 
-# ---- small in-memory activity log that discordbot reads ----
 class _RollingLog:
     def __init__(self, capacity: int = 400):
         self._buf: List[str] = []
@@ -38,7 +35,6 @@ class _RollingLog:
 
 EVENT_LOG = _RollingLog()
 
-# ---- queues that discordbot renders ----
 _SEQ = 0
 _SEQ_LOCK = threading.Lock()
 def _next_seq() -> int:
@@ -48,7 +44,6 @@ def _next_seq() -> int:
         return _SEQ
 
 class _ActiveQueue:
-    # (priority, seq, enq_ts, task)
     def __init__(self):
         self._heap: List[Tuple[int, int, float, Any]] = []
         self._lock = threading.Lock()
@@ -71,7 +66,6 @@ class _ActiveQueue:
             return heapq.heappop(self._heap)
 
 class _WaitingQueue:
-    # (exec_epoch, seq, priority, task)
     def __init__(self):
         self._heap: List[Tuple[float, int, int, Any]] = []
         self._lock = threading.Lock()
@@ -99,7 +93,6 @@ class _WaitingQueue:
         with self._lock:
             return heapq.heappop(self._heap)
 
-# ---- scheduler ----
 class TaskScheduler:
     def __init__(self):
         self.active_queue = _ActiveQueue()
@@ -137,7 +130,6 @@ class TaskScheduler:
         while not self._stop.is_set():
             now = time.time()
 
-            # promote ready waiting tasks
             while True:
                 ready = self.waiting_queue.peek_ready(now)
                 if ready is None:
@@ -169,12 +161,10 @@ class TaskScheduler:
 
 scheduler = TaskScheduler()
 
-# ---- lifecycle helpers expected by main/bot ----
 def is_running() -> bool:
     return started
 
 def start_background() -> None:
-    """Start scheduler in a background thread. Non-blocking."""
     global _scheduler_thread
     if is_running():
         return
@@ -182,15 +172,12 @@ def start_background() -> None:
     _scheduler_thread.start()
 
 def stop_background(timeout: float = 3.0) -> None:
-    """Signal stop and optionally join."""
     scheduler.stop()
     t = _scheduler_thread
     if t and t.is_alive():
         t.join(timeout)
 
-# ---- bootstrap ----
 def _bootstrap_tasks() -> None:
-    # Render (lowest priority by default)
     try:
         if getattr(settings, "RENDER_ENABLED", True):
             from render_sweep import build_render_task
@@ -200,7 +187,6 @@ def _bootstrap_tasks() -> None:
     except Exception as e:
         logs.logger.error(f"render bootstrap failed: {e}")
 
-    # Placeholders for gacha/pego; real enqueues stay in their modules
     try:
         if getattr(settings, "GACHA_ENABLED", False):
             EVENT_LOG.add("gacha: enabled")
@@ -217,7 +203,7 @@ def main() -> None:
     EVENT_LOG.add("bootstrap")
     try:
         _bootstrap_tasks()
-        scheduler.run()  # blocks until stop()
+        scheduler.run()
     finally:
         started = False
 
