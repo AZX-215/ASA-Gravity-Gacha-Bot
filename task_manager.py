@@ -9,6 +9,9 @@ except Exception:
     import gachalogs as logs  # type: ignore
 
 import settings
+    started: bool = False
+        _scheduler_thread = None
+
 
 # -------- activity log that discordbot reads --------
 class _RollingLog:
@@ -178,6 +181,7 @@ def main() -> None:
     except Exception as e:
         logs.logger.error(f"bootstrap failed: {e}")
     scheduler.run()
+
 
 
 
