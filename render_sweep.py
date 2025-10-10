@@ -1,3 +1,4 @@
+# render_sweep.py
 from __future__ import annotations
 from pathlib import Path
 import sys, os, json, time
@@ -15,14 +16,11 @@ BASE_DIR = Path(__file__).resolve().parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-# --- import util: load module if found anywhere under BASE_DIR ---
 def _import_anywhere(name: str):
-    # 1) normal import
     try:
         return importlib.import_module(name)
     except ModuleNotFoundError:
         pass
-    # 2) same folder
     p = BASE_DIR / f"{name}.py"
     if p.exists():
         spec = importlib.util.spec_from_file_location(name, str(p))
@@ -31,7 +29,6 @@ def _import_anywhere(name: str):
         spec.loader.exec_module(mod)                 # type: ignore
         sys.modules[name] = mod
         return mod
-    # 3) search subtree
     for root, _, files in os.walk(BASE_DIR):
         if f"{name}.py" in files:
             path = Path(root) / f"{name}.py"
@@ -43,9 +40,8 @@ def _import_anywhere(name: str):
             return mod
     raise ModuleNotFoundError(name)
 
-# --- stations discovery ---
+# ---------- stations ----------
 def _load_station_names() -> List[str]:
-    # custom_stations
     try:
         cs = _import_anywhere("custom_stations")
         if hasattr(cs, "get_custom_stations"):
@@ -61,7 +57,6 @@ def _load_station_names() -> List[str]:
     except Exception as e:
         logs.logger.debug(f"_load_station_names: custom_stations fallback: {e}")
 
-    # stations.json in common locations or anywhere under repo
     candidates = [
         BASE_DIR / "stations.json",
         BASE_DIR / "json_files" / "stations.json",
@@ -90,7 +85,6 @@ def _load_station_names() -> List[str]:
         except Exception as e:
             logs.logger.error(f"_load_station_names: failed {p}: {e}")
 
-    # stations.py fallback
     try:
         sp = _import_anywhere("stations")
         if hasattr(sp, "STATIONS"):
@@ -103,7 +97,7 @@ def _load_station_names() -> List[str]:
     logs.logger.warning("RenderSweep: no stations found")
     return []
 
-# --- actions wired to your existing helpers ---
+# ---------- actions ----------
 def _leave_tekpod():
     try:
         _r = _import_anywhere("render")
@@ -113,7 +107,6 @@ def _leave_tekpod():
             return
     except Exception as e:
         logs.logger.debug(f"_leave_tekpod: render.leave_tekpod failed: {e}")
-
     try:
         utils = _import_anywhere("utils")
         if hasattr(utils, "leave_tekpod"):
@@ -122,10 +115,18 @@ def _leave_tekpod():
             return
     except Exception as e:
         logs.logger.debug(f"_leave_tekpod: utils.leave_tekpod failed: {e}")
-
-    logs.logger.info("leave_tekpod helper not found; continuing without explicit exit")
+    logs.logger.info("leave_tekpod helper not found; continuing")
 
 def _teleport_to(name: str):
+    """Prefer string-based teleport. Fallback to other signatures."""
+    tp = _import_anywhere("teleporter")
+    # 1) string API (forces typing/paste path)
+    if hasattr(tp, "teleport"):
+        try:
+            return tp.teleport(name)
+        except Exception as e:
+            logs.logger.debug(f"_teleport_to: teleport(name) failed: {e}")
+    # 2) metadata API variants
     meta = None
     try:
         cs = _import_anywhere("custom_stations")
@@ -133,13 +134,18 @@ def _teleport_to(name: str):
             meta = cs.get_station_metadata(name)
     except Exception:
         meta = None
-
-    tp = _import_anywhere("teleporter")
-    if meta is not None and hasattr(tp, "teleport_not_default"):
-        return tp.teleport_not_default(meta)
-    if hasattr(tp, "teleport"):
-        return tp.teleport(name)
-    raise RuntimeError("teleporter has no teleport function")
+    if hasattr(tp, "teleport_not_default"):
+        # try name first
+        try:
+            return tp.teleport_not_default(name)
+        except Exception as e1:
+            logs.logger.debug(f"_teleport_to: teleport_not_default(name) failed: {e1}")
+            if meta is not None:
+                try:
+                    return tp.teleport_not_default(meta)
+                except Exception as e2:
+                    logs.logger.debug(f"_teleport_to: teleport_not_default(meta) failed: {e2}")
+    raise RuntimeError(f"teleporter could not navigate to '{name}'")
 
 def _open_tribe_logs():
     tr = _import_anywhere("tribelog")
@@ -161,7 +167,7 @@ def _return_to_bed(name: str):
     except Exception as e:
         logs.logger.error(f"return_to_bed failed: {e}")
 
-# --- task ---
+# ---------- task ----------
 class RenderSweepTask:
     def __init__(self, stations, priority: int):
         self.name = "render_sweep"
