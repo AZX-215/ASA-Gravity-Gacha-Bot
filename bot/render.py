@@ -21,6 +21,8 @@ def enter_tekpod():
     global render_flag
     buffs = ASA.player.buffs.check_buffs()
     attempts = 0 
+    lookdown = int(getattr(settings, "RENDER_BED_LOOKDOWN", 18))  # configurable pitch
+
     while not render_flag:
         attempts += 1
         if attempts == bot.config.render_attempts:
@@ -31,7 +33,7 @@ def enter_tekpod():
         utils.press_key(local_player.get_input_settings("Run")) #uncrouching char just in case
         utils.zero()
         utils.set_yaw(settings.station_yaw)
-        utils.turn_down(15)
+        utils.turn_down(lookdown)
         time.sleep(0.3*settings.lag_offset)
         pyautogui.keyDown(chr(utils.keymap_return(local_player.get_input_settings("Use"))))
         
@@ -41,7 +43,7 @@ def enter_tekpod():
             utils.press_key(local_player.get_input_settings("Run")) 
             utils.zero()
             utils.set_yaw(settings.station_yaw)
-            utils.turn_down(15)
+            utils.turn_down(lookdown)
             time.sleep(0.3*settings.lag_offset)
             pyautogui.keyDown(chr(utils.keymap_return(local_player.get_input_settings("Use"))))
             time.sleep(0.5*settings.lag_offset)
