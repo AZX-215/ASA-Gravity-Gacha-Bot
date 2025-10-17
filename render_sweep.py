@@ -117,6 +117,28 @@ def _leave_tekpod():
         logs.logger.debug(f"_leave_tekpod: utils.leave_tekpod failed: {e}")
     logs.logger.info("leave_tekpod helper not found; continuing")
 
+def _enter_tekpod():
+    """Enter the render bed using whichever module exists."""
+    # prefer root render.py
+    try:
+        _r = _import_anywhere("render")
+        if hasattr(_r, "enter_tekpod"):
+            logs.logger.debug("enter_tekpod via render.enter_tekpod")
+            _r.enter_tekpod()
+            return
+    except Exception as e:
+        logs.logger.debug(f"_enter_tekpod: render.enter_tekpod failed: {e}")
+    # try package-style bot.render
+    try:
+        _br = _import_anywhere("bot.render")
+        if hasattr(_br, "enter_tekpod"):
+            logs.logger.debug("enter_tekpod via bot.render.enter_tekpod")
+            _br.enter_tekpod()
+            return
+    except Exception as e:
+        logs.logger.debug(f"_enter_tekpod: bot.render.enter_tekpod failed: {e}")
+    logs.logger.error("enter_tekpod helper not found")
+
 def _teleport_to(name: str):
     """Prefer string-based teleport. Fallback to other signatures."""
     tp = _import_anywhere("teleporter")
@@ -135,7 +157,6 @@ def _teleport_to(name: str):
     except Exception:
         meta = None
     if hasattr(tp, "teleport_not_default"):
-        # try name first
         try:
             return tp.teleport_not_default(name)
         except Exception as e1:
@@ -161,11 +182,14 @@ def _close_tribe_logs():
     except Exception as e:
         logs.logger.debug(f"_close_tribe_logs: {e}")
 
-def _return_to_bed(name: str):
+def _return_to_bed_and_enter(name: str):
     try:
         _teleport_to(name)
+        # small settle delay for textures/prompts
+        time.sleep(0.8 * float(getattr(settings, "lag_offset", 1.0)))
+        _enter_tekpod()
     except Exception as e:
-        logs.logger.error(f"return_to_bed failed: {e}")
+        logs.logger.error(f"return_to_bed_and_enter failed: {e}")
 
 # ---------- task ----------
 class RenderSweepTask:
@@ -191,7 +215,7 @@ class RenderSweepTask:
 
         bed_name = str(getattr(settings, "RENDER_BED_NAME", getattr(settings, "bed_spawn", "renderbed")))
         logs.logger.info(f"RenderSweep: return -> {bed_name}")
-        _return_to_bed(bed_name)
+        _return_to_bed_and_enter(bed_name)
         logs.logger.info("RenderSweep: done")
 
     def on_complete(self, manager):
