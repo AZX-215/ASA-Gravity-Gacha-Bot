@@ -157,7 +157,7 @@ def collect_grindables(metadata):
     time.sleep(0.2*settings.lag_offset)
 
     # NEW: Dump POLY into the Megalab to the left, then recenter
-    angle = getattr(settings, "megalab_left_degrees", 30)
+    angle = getattr(settings, "megalab_left_degrees", 90)
     utils.turn_left(angle)
     time.sleep(0.5*settings.lag_offset)  # guard to avoid toggling Megalab off
     ASA.strucutres.inventory.open()
@@ -169,6 +169,16 @@ def collect_grindables(metadata):
         ASA.strucutres.inventory.close()
         template.template_await_false(template.check_template, 1, "inventory", 0.7)
     utils.turn_right(angle)
+    time.sleep(0.4*settings.lag_offset)
+    utils.turn_right(180)
+    time.sleep(0.4*settings.lag_offset)
+    utils.turn_down(15)
+    time.sleep(0.4*settings.lag_offset)
+    utils.press_key("Use")
+    time.sleep(0.4*settings.lag_offset)
+    utils.turn_up(15)
+    time.sleep(0.4*settings.lag_offset)
+    utils.turn_left(180)
 
     drop_useless()
 

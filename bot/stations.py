@@ -3,6 +3,7 @@ import time
 import template
 import logs.gachalogs as logs
 import bot.render
+import utils
 from ASA.strucutres import bed , teleporter , inventory
 from ASA.player import buffs , console , player_state , tribelog , player_inventory
 from ASA.stations import custom_stations
@@ -102,6 +103,46 @@ class pego_station(base_task):
             teleporter.teleport_not_default(settings.open_crystals)  # teleport to open crystals station
             deposit.open_crystals()
             deposit.dedi_deposit(settings.height_ele)
+            utils.turn_left(90)
+            time.sleep(0.4*settings.lag_offset)
+            utils.turn_up(15)
+            time.sleep(0.4*settings.lag_offset)
+            utils.press_key("Use")
+            time.sleep(0.4*settings.lag_offset)
+            utils.turn_down(15)
+            time.sleep(0.4*settings.lag_offset)
+            utils.press_key("Crouch")
+            time.sleep(0.4*settings.lag_offset)
+            utils.press_key("Use")
+            time.sleep(0.4*settings.lag_offset)
+            utils.turn_down(15)
+            time.sleep(0.4*settings.lag_offset)
+            utils.press_key("Use")
+            time.sleep(0.4*settings.lag_offset)
+            utils.press_key("Run")
+            utils.turn_up(15)
+            time.sleep(0.4*settings.lag_offset)
+            utils.turn_right(180)
+            time.sleep(0.4*settings.lag_offset)
+            utils.turn_up(15)
+            time.sleep(0.4*settings.lag_offset)
+            utils.press_key("Use")
+            time.sleep(0.4*settings.lag_offset)
+            utils.turn_down(15)
+            time.sleep(0.4*settings.lag_offset)
+            utils.press_key("Crouch")
+            time.sleep(0.4*settings.lag_offset)
+            utils.press_key("Use")
+            time.sleep(0.4*settings.lag_offset)
+            utils.turn_down(15)
+            time.sleep(0.4*settings.lag_offset)
+            utils.press_key("Use")
+            time.sleep(0.4*settings.lag_offset)
+            utils.press_key("Run")
+            utils.turn_up(15)
+            time.sleep(0.4*settings.lag_offset)
+            utils.turn_left(90)
+            time.sleep(0.4*settings.lag_offset)
             teleporter.teleport_not_default(dropoff_metadata) # everytime you collect you have to drop off makes sense to include it into here 
             deposit.deposit_all(dropoff_metadata)
         else:
