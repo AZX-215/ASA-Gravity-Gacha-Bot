@@ -100,11 +100,20 @@ class pego_station(base_task):
         teleporter.teleport_not_default(pego_metadata)
         pego.pego_pickup(pego_metadata)
         if template.check_template("crystal_in_hotbar",0.7):
-            teleporter.teleport_not_default(settings.open_crystals)  # teleport to open crystals station
+            open_crystals_metadata = custom_stations.get_station_metadata(settings.open_crystals)
+            teleporter.teleport_not_default(open_crystals_metadata)  # teleport to open crystals station
+
             deposit.open_crystals()
             deposit.dedi_deposit_alt(settings.height_ele)
-            teleporter.teleport_not_default(dropoff_metadata) # everytime you collect you have to drop off makes sense to include it into here 
+
+            # ensure "behind" is correct relative to the station baseline
+            utils.zero()
+            utils.set_yaw(open_crystals_metadata.yaw)
+            deposit.vaults(open_crystals_metadata)
+
+            teleporter.teleport_not_default(dropoff_metadata)
             deposit.deposit_all(dropoff_metadata)
+
         else:
             logs.logger.info(f"bot has no crystals in hotbar we are skipping the deposit step")
 
