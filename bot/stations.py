@@ -103,17 +103,20 @@ class pego_station(base_task):
         if template.check_template("crystal_in_hotbar",0.7):
             open_crystals_metadata = custom_stations.get_station_metadata(settings.open_crystals)
             teleporter.teleport_not_default(open_crystals_metadata)  # teleport to open crystals station
-            time.sleep(1)  # give HUD/hotbar a moment to load after TP
+            time.sleep(0.8)  # give HUD/hotbar a moment to load after TP
             deposit.open_crystals()
+            time.sleep(0.2)
             deposit.dedi_deposit_alt(settings.height_ele)
-
-            # ensure "behind" is correct relative to the station baseline
+            time.sleep(0.2)
             utils.zero()
             utils.set_yaw(open_crystals_metadata.yaw)
+            time.sleep(0.2)
             deposit.vaults(open_crystals_metadata)
+            time.sleep(0.2)
             teleporter.teleport_not_default(dropoff_metadata)
             time.sleep(0.5)
             deposit.deposit_all(dropoff_metadata)
+            time.sleep(0.2)
 
         else:
             logs.logger.info(f"bot has no crystals in hotbar we are skipping the deposit step")
@@ -142,6 +145,7 @@ class render_station(base_task):
             player_inventory.drop_all_inv()
             player_inventory.close()
             tribelog.open()
+            time.sleep(0.5)
     def get_priority_level(self):
         return 8
 
@@ -164,9 +168,11 @@ class snail_pheonix(base_task):
         teleporter.teleport_not_default(gacha_metadata)
         time.sleep(0.2)
         gacha.collection(gacha_metadata)
+        time.sleep(0.2)
         teleporter.teleport_not_default(self.depo_tp)
         time.sleep(0.2)
         deposit.dedi_deposit(settings.height_ele)
+        time.sleep(0.2)
         
     def get_priority_level(self):
         return 4
@@ -183,6 +189,7 @@ class pause(base_task):
         teleporter.teleport_not_default(settings.bed_spawn)
         time.sleep(0.2)
         bot.render.enter_tekpod()
+        tribelog.open()
         time.sleep(self.time)
         bot.render.leave_tekpod()
         
