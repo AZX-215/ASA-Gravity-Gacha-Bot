@@ -62,6 +62,35 @@ class priority_queue_prio:
     def is_empty(self):
         return len(self.queue) == 0
 
+
+
+class watchdog_render_task:
+    """One-shot maintenance task.
+    - Runs render_station.execute() at high priority so it can't be starved.
+    - Optionally sets stations.berry_station=True AFTER render, so the next gacha run re-berries.
+    """
+    def __init__(self, reason="timeout", request_berry=False):
+        self.name = f"watchdog_render:{reason}"
+        self.reason = reason
+        self.request_berry = request_berry
+        self.one_shot = True
+        self.has_run_before = False
+
+    def execute(self):
+        # Run render maintenance (teleport -> tekpod -> drop all -> open tribe log, etc.)
+        stations.render_station().execute()
+
+        # IMPORTANT: set berry flag AFTER render, because render_station.execute() may also touch berry_station.
+        if self.request_berry:
+            stations.berry_station = True
+
+    def get_priority_level(self):
+        return 1  # higher than pegos/gachas so it can pre-empt
+
+    def get_requeue_delay(self):
+        return 0
+
+
 class task_scheduler(metaclass=SingletonMeta):
     def __init__(self):
         if not hasattr(self, 'initialized'):  
@@ -69,6 +98,21 @@ class task_scheduler(metaclass=SingletonMeta):
             self.waiting_queue = priority_queue_exc()  
             self.initialized = True 
             self.prev_task_name = ""
+
+            # watchdog / cycle tracking
+            self.last_render_exec = time.time()
+            self._maintenance_timeout_sec = 3 * 60 * 60  # force render at least once every 3 hours
+            self._maintenance_enqueued = False
+            self._maintenance_due_deferred = False
+            self._defer_completion_ratio = 0.90  # if we're ~done, wait for cycle end instead of interrupting
+            self._maintenance_counter = 0
+
+            # cycle definition: "complete" means every pego + every gacha has executed at least once
+            self._pego_all = set()
+            self._gacha_all = set()
+            self._pego_done = set()
+            self._gacha_done = set()
+
 
     def add_task(self, task):
         
@@ -78,7 +122,16 @@ class task_scheduler(metaclass=SingletonMeta):
             next_execution_time = time.time() + task.get_requeue_delay()  
 
         task.has_run_before = True
-    
+
+        # Track station lists for cycle completion logic
+        try:
+            if isinstance(task, stations.pego_station):
+                self._pego_all.add(task.name)
+            elif isinstance(task, stations.gacha_station):
+                self._gacha_all.add(task.name)
+        except Exception:
+            pass
+
         self.waiting_queue.add(task, task.get_priority_level(), next_execution_time)
         print(f"Added task {task.name} to waiting queue ") # might need to remove this if you have LOADS OF stations causing long messages
 
@@ -117,10 +170,70 @@ class task_scheduler(metaclass=SingletonMeta):
             if task.name != self.prev_task_name:
                 logs.logger.info(f"Executing task: {task.name}")
             task.execute()  
-            
+
+            # -------- watchdog + cycle tracking --------
+            # Update last render time
+            if isinstance(task, stations.render_station) or isinstance(task, watchdog_render_task):
+                self.last_render_exec = time.time()
+
+            # Mark progress toward a full cycle
+            if isinstance(task, stations.pego_station):
+                self._pego_done.add(task.name)
+            elif isinstance(task, stations.gacha_station):
+                self._gacha_done.add(task.name)
+
+            # Determine cycle completion (only when both sets are non-empty)
+            cycle_complete = (
+                len(self._pego_all) > 0 and len(self._gacha_all) > 0 and
+                self._pego_done.issuperset(self._pego_all) and
+                self._gacha_done.issuperset(self._gacha_all)
+            )
+
+            # If render hasn't happened in too long, enqueue a watchdog render.
+            # If we're almost done with the current cycle, defer until cycle completes to avoid wasting time/berries.
+            if not self._maintenance_enqueued:
+                time_since_render = time.time() - self.last_render_exec
+                if time_since_render >= self._maintenance_timeout_sec:
+                    total = len(self._pego_all) + len(self._gacha_all)
+                    done = len(self._pego_done) + len(self._gacha_done)
+                    progress = (done / total) if total > 0 else 0.0
+
+                    if (not cycle_complete) and progress >= self._defer_completion_ratio:
+                        self._maintenance_due_deferred = True
+                    else:
+                        self._maintenance_counter += 1
+                        self._maintenance_enqueued = True
+                        self._maintenance_due_deferred = False
+                        self.add_task(watchdog_render_task(reason=f"timeout#{self._maintenance_counter}", request_berry=False))
+
+            # Enqueue maintenance at the end of each full cycle, and request re-berry on the next gacha run.
+            if cycle_complete and not self._maintenance_enqueued:
+                self._maintenance_counter += 1
+                self._maintenance_enqueued = True
+                self._maintenance_due_deferred = False
+                self.add_task(watchdog_render_task(reason=f"cycle_complete#{self._maintenance_counter}", request_berry=True))
+
+            # If we deferred a watchdog because we were ~done, trigger it now that the cycle is complete.
+            if cycle_complete and self._maintenance_due_deferred and not self._maintenance_enqueued:
+                self._maintenance_counter += 1
+                self._maintenance_enqueued = True
+                self._maintenance_due_deferred = False
+                self.add_task(watchdog_render_task(reason=f"deferred_cycle_complete#{self._maintenance_counter}", request_berry=True))
+
+            # When maintenance runs, reset cycle tracking so the next cycle starts clean
+            if isinstance(task, watchdog_render_task):
+                self._pego_done.clear()
+                self._gacha_done.clear()
+                self._maintenance_enqueued = False
+                self._maintenance_due_deferred = False
+
+            # ------------------------------------------
+
             self.prev_task_name = task.name
-            if task.name != "pause":
+            if task.name != "pause" and not getattr(task, 'one_shot', False):
                 self.move_to_waiting_queue(task)
+            elif getattr(task, 'one_shot', False):
+                print("one-shot task complete, not re-queuing")
             else:
                 print("pause task skipping adding back ")
         else:
