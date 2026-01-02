@@ -154,8 +154,9 @@ def vault_deposit(items, metadata):
     if not template.template_await_true(template.check_template,1,"vault",0.7):
         logs.logger.error(f"{side} vault was not opened retrying now ")
         ASA.strucutres.inventory.close()
-        utils.zero()
+        time.sleep(0.1)
         utils.set_yaw(metadata.yaw)
+        time.sleep(0.2)
         utils.turn_right(90*turn_constant)
         time.sleep(0.2*settings.lag_offset)
         ASA.strucutres.inventory.open()
@@ -288,6 +289,7 @@ def deposit_all(metadata):
         depo_grinder(metadata)
         grindables_metadata = ASA.stations.custom_stations.get_station_metadata(settings.grindables)
         ASA.strucutres.teleporter.teleport_not_default(grindables_metadata)
+        time.sleep(0.5)
         logs.logger.debug("collecting grindables")
         collect_grindables(grindables_metadata)
     else:

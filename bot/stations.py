@@ -72,6 +72,7 @@ class gacha_station(base_task):
 
         iguanadon.iguanadon(iguanadon_metadata)
         teleporter.teleport_not_default(gacha_metadata)
+        time.sleep(0.2)
         gacha.drop_off(gacha_metadata)
 
     def get_priority_level(self):
@@ -102,7 +103,7 @@ class pego_station(base_task):
         if template.check_template("crystal_in_hotbar",0.7):
             open_crystals_metadata = custom_stations.get_station_metadata(settings.open_crystals)
             teleporter.teleport_not_default(open_crystals_metadata)  # teleport to open crystals station
-
+            time.sleep(1)  # give HUD/hotbar a moment to load after TP
             deposit.open_crystals()
             deposit.dedi_deposit_alt(settings.height_ele)
 
@@ -110,8 +111,8 @@ class pego_station(base_task):
             utils.zero()
             utils.set_yaw(open_crystals_metadata.yaw)
             deposit.vaults(open_crystals_metadata)
-
             teleporter.teleport_not_default(dropoff_metadata)
+            time.sleep(0.5)
             deposit.deposit_all(dropoff_metadata)
 
         else:
@@ -135,6 +136,7 @@ class render_station(base_task):
             logs.logger.debug(f"render flag:{bot.render.render_flag} we are trying to get into the pod now")
             player_state.reset_state()
             teleporter.teleport_not_default(settings.bed_spawn)
+            time.sleep(0.5)
             bot.render.enter_tekpod()
             player_inventory.open()
             player_inventory.drop_all_inv()
@@ -160,8 +162,10 @@ class snail_pheonix(base_task):
 
         player_state.check_state()
         teleporter.teleport_not_default(gacha_metadata)
+        time.sleep(0.2)
         gacha.collection(gacha_metadata)
         teleporter.teleport_not_default(self.depo_tp)
+        time.sleep(0.2)
         deposit.dedi_deposit(settings.height_ele)
         
     def get_priority_level(self):
@@ -177,6 +181,7 @@ class pause(base_task):
     def execute(self):
         player_state.check_state()
         teleporter.teleport_not_default(settings.bed_spawn)
+        time.sleep(0.2)
         bot.render.enter_tekpod()
         time.sleep(self.time)
         bot.render.leave_tekpod()
