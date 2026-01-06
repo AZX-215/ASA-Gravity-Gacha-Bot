@@ -1,6 +1,7 @@
 import heapq
 import time
 import json
+import settings
 import bot.stations as stations
 import logs.gachalogs as logs
 from threading import Lock, Thread 
@@ -113,6 +114,10 @@ class task_scheduler(metaclass=SingletonMeta):
             self._pego_done = set()
             self._gacha_done = set()
 
+            # sparkpowder: enqueue once after all pego tasks in a cycle
+            self._sparkpowder_enqueued = False
+            self._sparkpowder_done = False
+
 
     def add_task(self, task):
         
@@ -182,6 +187,16 @@ class task_scheduler(metaclass=SingletonMeta):
             elif isinstance(task, stations.gacha_station):
                 self._gacha_done.add(task.name)
 
+
+            # Mark sparkpowder completion
+            if isinstance(task, stations.sparkpowder_station):
+                self._sparkpowder_done = True
+
+            # Enqueue sparkpowder once all pego tasks have run in this cycle
+            if (not self._sparkpowder_enqueued) and getattr(settings, 'sparkpowder_enabled', False):
+                if len(self._pego_all) > 0 and self._pego_done.issuperset(self._pego_all):
+                    self._sparkpowder_enqueued = True
+                    self.add_task(stations.sparkpowder_station())
             # Determine cycle completion (only when both sets are non-empty)
             cycle_complete = (
                 len(self._pego_all) > 0 and len(self._gacha_all) > 0 and
@@ -226,6 +241,8 @@ class task_scheduler(metaclass=SingletonMeta):
                 self._gacha_done.clear()
                 self._maintenance_enqueued = False
                 self._maintenance_due_deferred = False
+                self._sparkpowder_enqueued = False
+                self._sparkpowder_done = False
 
             # ------------------------------------------
 
