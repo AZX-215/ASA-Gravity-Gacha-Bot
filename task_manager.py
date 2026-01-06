@@ -1,238 +1,332 @@
-from __future__ import annotations
 import heapq
-import threading
 import time
-from typing import Any, List, Optional, Tuple
-
-# logging hook
-try:
-    from logs import gachalogs as logs
-except Exception:
-    import gachalogs as logs  # type: ignore
-
+import json
 import settings
+import bot.stations as stations
+import logs.gachalogs as logs
+from threading import Lock, Thread 
 
-# module state
-started: bool = False
-_scheduler_thread: Optional[threading.Thread] = None
+global scheduler
+global started
+started = False
+class SingletonMeta(type):
 
-# -------- rolling log the Discord bot reads --------
-class _RollingLog:
-    def __init__(self, capacity: int = 400):
-        self._buf: List[str] = []
-        self._cap = capacity
-        self._lock = threading.Lock()
+    _instances = {}
 
-    def add(self, msg: str) -> None:
-        ts = time.strftime("%H:%M:%S")
-        line = f"{ts} {msg}"
-        with self._lock:
-            self._buf.append(line)
-            if len(self._buf) > self._cap:
-                del self._buf[: len(self._buf) - self._cap]
+    _lock: Lock = Lock()
 
-    def tail(self, n: int) -> List[str]:
-        with self._lock:
-            return self._buf[-n:] if n > 0 else []
+    def __call__(cls,*args,**kwargs):
 
-EVENT_LOG = _RollingLog()
+        with cls._lock:
+            if cls not in cls._instances:
+                instance = super().__call__(*args,**kwargs)
+                cls._instances[cls] = instance
+        return cls._instances[cls]
 
-# -------- queues the Discord bot renders --------
-_SEQ = 0
-_SEQ_LOCK = threading.Lock()
-def _next_seq() -> int:
-    global _SEQ
-    with _SEQ_LOCK:
-        _SEQ += 1
-        return _SEQ
-
-class _ActiveQueue:
-    # (priority, seq, enq_ts, task)
+class priority_queue_exc:
     def __init__(self):
-        self._heap: List[Tuple[int, int, float, Any]] = []
-        self._lock = threading.Lock()
+        self.queue = []  
 
-    @property
-    def queue(self) -> List[Tuple[int, int, float, Any]]:
-        with self._lock:
-            return list(self._heap)
+    def add(self, task, priority, execution_time):
+        heapq.heappush(self.queue, (execution_time, len(self.queue), priority, task))
 
-    def is_empty(self) -> bool:
-        with self._lock:
-            return not self._heap
+    def pop(self):
+        if not self.is_empty():
+            return heapq.heappop(self.queue)
+        return None
 
-    def push(self, priority: int, task: Any) -> None:
-        with self._lock:
-            heapq.heappush(self._heap, (priority, _next_seq(), time.time(), task))
+    def peek(self):
+        if not self.is_empty():
+            return self.queue[0]
+        return None
 
-    def pop(self) -> Tuple[int, int, float, Any]:
-        with self._lock:
-            return heapq.heappop(self._heap)
-
-class _WaitingQueue:
-    # (exec_epoch, seq, priority, task)
+    def is_empty(self):
+        return len(self.queue) == 0
+    
+class priority_queue_prio:
     def __init__(self):
-        self._heap: List[Tuple[float, int, int, Any]] = []
-        self._lock = threading.Lock()
+        self.queue = []  
 
-    @property
-    def queue(self) -> List[Tuple[float, int, int, Any]]:
-        with self._lock:
-            return list(self._heap)
+    def add(self, task, priority, execution_time):
+        heapq.heappush(self.queue, (priority, execution_time, len(self.queue), task))
 
-    def is_empty(self) -> bool:
-        with self._lock:
-            return not self._heap
+    def pop(self):
+        if not self.is_empty():
+            return heapq.heappop(self.queue)
+        return None
 
-    def push(self, when_epoch: float, priority: int, task: Any) -> None:
-        with self._lock:
-            heapq.heappush(self._heap, (when_epoch, _next_seq(), priority, task))
+    def peek(self):
+        if not self.is_empty():
+            return self.queue[0]
+        return None
 
-    def peek_ready(self, now_epoch: float) -> Optional[Tuple[float, int, int, Any]]:
-        with self._lock:
-            if not self._heap:
-                return None
-            return self._heap[0] if self._heap[0][0] <= now_epoch else None
+    def is_empty(self):
+        return len(self.queue) == 0
 
-    def pop(self) -> Tuple[float, int, int, Any]:
-        with self._lock:
-            return heapq.heappop(self._heap)
 
-# -------- scheduler --------
-class TaskScheduler:
+
+class watchdog_render_task:
+    """One-shot maintenance task.
+    - Runs render_station.execute() at high priority so it can't be starved.
+    - Optionally sets stations.berry_station=True AFTER render, so the next gacha run re-berries.
+    """
+    def __init__(self, reason="timeout", request_berry=False):
+        self.name = f"watchdog_render:{reason}"
+        self.reason = reason
+        self.request_berry = request_berry
+        self.one_shot = True
+        self.has_run_before = False
+
+    def execute(self):
+        # Run render maintenance (teleport -> tekpod -> drop all -> open tribe log, etc.)
+        stations.render_station().execute()
+
+        # IMPORTANT: set berry flag AFTER render, because render_station.execute() may also touch berry_station.
+        if self.request_berry:
+            stations.berry_station = True
+
+    def get_priority_level(self):
+        return 1  # higher than pegos/gachas so it can pre-empt
+
+    def get_requeue_delay(self):
+        return 0
+
+
+class task_scheduler(metaclass=SingletonMeta):
     def __init__(self):
-        self.active_queue = _ActiveQueue()
-        self.waiting_queue = _WaitingQueue()
-        self._stop = threading.Event()
+        if not hasattr(self, 'initialized'):  
+            self.active_queue = priority_queue_prio() 
+            self.waiting_queue = priority_queue_exc()  
+            self.initialized = True 
+            self.prev_task_name = ""
 
-    def enqueue(self, task: Any, priority: Optional[int] = None) -> None:
-        pri = int(getattr(task, "priority", 1000) if priority is None else priority)
-        EVENT_LOG.add(f"enqueue -> {getattr(task, 'name', 'task')} p={pri}")
-        self.active_queue.push(pri, task)
+            # watchdog / cycle tracking
+            self.last_render_exec = time.time()
+            self._maintenance_timeout_sec = 3 * 60 * 60  # force render at least once every 3 hours
+            self._maintenance_enqueued = False
+            self._maintenance_due_deferred = False
+            self._defer_completion_ratio = 0.90  # if we're ~done, wait for cycle end instead of interrupting
+            self._maintenance_counter = 0
 
-    def enqueue_delayed(self, task: Any, delay_seconds: int, priority: Optional[int] = None) -> None:
-        run_at = time.time() + max(0, delay_seconds)
-        pri = int(getattr(task, "priority", 1000) if priority is None else priority)
-        EVENT_LOG.add(f"enqueue@{int(run_at)} -> {getattr(task, 'name', 'task')} p={pri}")
-        self.waiting_queue.push(run_at, pri, task)
+            # cycle definition: "complete" means every pego + every gacha has executed at least once
+            self._pego_all = set()
+            self._gacha_all = set()
+            self._pego_done = set()
+            self._gacha_done = set()
 
-    def enqueue_at(self, task: Any, run_at, priority: Optional[int] = None) -> None:
-        if isinstance(run_at, (int, float)):
-            epoch = float(run_at)
+            # sparkpowder: configured as per-station one-shot tasks enqueued once after all pego tasks in a cycle
+            self._sparkpowder_task_defs = []  # set in main() from json_files/sparkpowder.json
+            self._sparkpowder_enqueued = False
+            self._sparkpowder_all = set()
+            self._sparkpowder_done = set()
+
+
+    def add_task(self, task):
+        
+        if not getattr(task, 'has_run_before', False):
+            next_execution_time = time.time()  
         else:
-            try:
-                epoch = run_at.timestamp()
-            except Exception:
-                epoch = time.time()
-        pri = int(getattr(task, "priority", 1000) if priority is None else priority)
-        EVENT_LOG.add(f"enqueue@{int(epoch)} -> {getattr(task, 'name', 'task')} p={pri}")
-        self.waiting_queue.push(epoch, pri, task)
+            next_execution_time = time.time() + task.get_requeue_delay()  
 
-    def stop(self) -> None:
-        self._stop.set()
+        task.has_run_before = True
 
-    def run(self) -> None:
-        EVENT_LOG.add("scheduler: start")
-        while not self._stop.is_set():
-            now = time.time()
+        # Track station lists for cycle completion logic
+        try:
+            if isinstance(task, stations.pego_station):
+                self._pego_all.add(task.name)
+            elif isinstance(task, stations.gacha_station):
+                self._gacha_all.add(task.name)
+            elif isinstance(task, stations.sparkpowder_station):
+                self._sparkpowder_all.add(task.name)
+        except Exception:
+            pass
 
-            # promote waiting → active
-            while True:
-                ready = self.waiting_queue.peek_ready(now)
-                if ready is None:
-                    break
-                self.waiting_queue.pop()
-                _, _, pri, task = ready
-                self.active_queue.push(pri, task)
+        self.waiting_queue.add(task, task.get_priority_level(), next_execution_time)
+        print(f"Added task {task.name} to waiting queue ") # might need to remove this if you have LOADS OF stations causing long messages
 
-            if self.active_queue.is_empty():
-                time.sleep(0.1)
-                continue
+            
+    def run(self):
+        while True:
+            current_time = time.time()
 
-            pri, _, _, task = self.active_queue.pop()
-            name = getattr(task, "name", "task")
-            EVENT_LOG.add(f"run -> {name} p={pri}")
-            try:
-                task.run()
-            except Exception as e:
-                logs.logger.error(f"task {name} failed: {e}")
-                EVENT_LOG.add(f"error -> {name}: {e}")
-            finally:
-                if hasattr(task, "on_complete"):
-                    try:
-                        task.on_complete(self)
-                    except Exception as e:
-                        logs.logger.error(f"on_complete {name} failed: {e}")
-                EVENT_LOG.add(f"done -> {name}")
-            time.sleep(0.05)
+            self.move_ready_tasks_to_active_queue(current_time)
+            
+            if not self.active_queue.is_empty():
+                self.execute_task(current_time)
+            else:
+                time.sleep(5)
 
-scheduler = TaskScheduler()
+    def move_ready_tasks_to_active_queue(self, current_time):
+        
+        while not self.waiting_queue.is_empty():
+            task_tuple = self.waiting_queue.peek()
+            exec_time, _, priority, task = task_tuple
 
-# -------- lifecycle helpers --------
-def is_running() -> bool:
-    return started
+            if exec_time <= current_time:
+                self.waiting_queue.pop()  
+                self.active_queue.add(task, priority, exec_time)  
+                
+            else:
+                break  
 
-def start_background() -> None:
-    """Start scheduler in a background thread."""
-    global _scheduler_thread
-    if is_running():
-        return
-    _scheduler_thread = threading.Thread(target=main, name="task-scheduler", daemon=True)
-    _scheduler_thread.start()
+    def execute_task(self, current_time):
+        
+        task_tuple = self.active_queue.pop()  
+        exec_time,priority , _, task = task_tuple
 
-def stop_background(timeout: float = 3.0) -> None:
-    scheduler.stop()
-    t = _scheduler_thread
-    if t and t.is_alive():
-        t.join(timeout)
+        if exec_time <= current_time:
+            
+            if task.name != self.prev_task_name:
+                logs.logger.info(f"Executing task: {task.name}")
+            task.execute()  
 
-# -------- compatibility helpers for discord embeds --------
-def priority_queue_prio() -> List[str]:
-    """Active queue view used by embed_create."""
-    rows: List[str] = []
-    for pri, _, enq_ts, task in scheduler.active_queue.queue:
-        name = getattr(task, "name", "task")
-        rows.append(f"p={pri}  {name}  @{time.strftime('%H:%M:%S', time.localtime(enq_ts))}")
-    return rows
+            # -------- watchdog + cycle tracking --------
+            # Update last render time
+            if isinstance(task, stations.render_station) or isinstance(task, watchdog_render_task):
+                self.last_render_exec = time.time()
 
-def priority_queue_eta() -> List[str]:
-    """Waiting queue view (ETA) used by embed_create."""
-    rows: List[str] = []
-    for when_epoch, _, pri, task in scheduler.waiting_queue.queue:
-        name = getattr(task, "name", "task")
-        rows.append(f"{time.strftime('%H:%M:%S', time.localtime(when_epoch))}  p={pri}  {name}")
-    return rows
+            # Mark progress toward a full cycle
+            if isinstance(task, stations.pego_station):
+                self._pego_done.add(task.name)
+            elif isinstance(task, stations.gacha_station):
+                self._gacha_done.add(task.name)
+            # Mark sparkpowder completion
+            if isinstance(task, stations.sparkpowder_station):
+                self._sparkpowder_done.add(task.name)
 
-# -------- bootstrap --------
-def _bootstrap_tasks() -> None:
+            # Enqueue sparkpowder once all pego tasks have run in this cycle
+            if (not self._sparkpowder_enqueued) and getattr(settings, 'sparkpowder_enabled', False):
+                if len(self._pego_all) > 0 and self._pego_done.issuperset(self._pego_all):
+                    self._sparkpowder_enqueued = True
+                    if not self._sparkpowder_task_defs:
+                        logs.logger.warning("[Sparkpowder] sparkpowder.json is empty or not loaded; nothing to enqueue.")
+                    else:
+                        for entry in self._sparkpowder_task_defs:
+                            sp_name = entry.get("name") or entry.get("station_name") or entry.get("teleporter")
+                            sp_tp = entry.get("teleporter") or entry.get("station_name")
+                            sp_delay = entry.get("delay", 0)
+                            if not sp_name or not sp_tp:
+                                logs.logger.warning(f"[Sparkpowder] Invalid entry in sparkpowder.json: {entry}")
+                                continue
+                            self.add_task(stations.sparkpowder_station(sp_name, sp_tp, sp_delay))
+            # Determine cycle completion (only when both sets are non-empty)
+            cycle_complete = (
+                len(self._pego_all) > 0 and len(self._gacha_all) > 0 and
+                self._pego_done.issuperset(self._pego_all) and
+                self._gacha_done.issuperset(self._gacha_all)
+            )
+
+            # If render hasn't happened in too long, enqueue a watchdog render.
+            # If we're almost done with the current cycle, defer until cycle completes to avoid wasting time/berries.
+            if not self._maintenance_enqueued:
+                time_since_render = time.time() - self.last_render_exec
+                if time_since_render >= self._maintenance_timeout_sec:
+                    total = len(self._pego_all) + len(self._gacha_all)
+                    done = len(self._pego_done) + len(self._gacha_done)
+                    progress = (done / total) if total > 0 else 0.0
+
+                    if (not cycle_complete) and progress >= self._defer_completion_ratio:
+                        self._maintenance_due_deferred = True
+                    else:
+                        self._maintenance_counter += 1
+                        self._maintenance_enqueued = True
+                        self._maintenance_due_deferred = False
+                        self.add_task(watchdog_render_task(reason=f"timeout#{self._maintenance_counter}", request_berry=False))
+
+            # Enqueue maintenance at the end of each full cycle, and request re-berry on the next gacha run.
+            if cycle_complete and not self._maintenance_enqueued:
+                self._maintenance_counter += 1
+                self._maintenance_enqueued = True
+                self._maintenance_due_deferred = False
+                self.add_task(watchdog_render_task(reason=f"cycle_complete#{self._maintenance_counter}", request_berry=True))
+
+            # If we deferred a watchdog because we were ~done, trigger it now that the cycle is complete.
+            if cycle_complete and self._maintenance_due_deferred and not self._maintenance_enqueued:
+                self._maintenance_counter += 1
+                self._maintenance_enqueued = True
+                self._maintenance_due_deferred = False
+                self.add_task(watchdog_render_task(reason=f"deferred_cycle_complete#{self._maintenance_counter}", request_berry=True))
+
+            # When maintenance runs, reset cycle tracking so the next cycle starts clean
+            if isinstance(task, watchdog_render_task):
+                self._pego_done.clear()
+                self._gacha_done.clear()
+                self._maintenance_enqueued = False
+                self._maintenance_due_deferred = False
+                self._sparkpowder_enqueued = False
+                self._sparkpowder_all.clear()
+                self._sparkpowder_done.clear()
+
+            # ------------------------------------------
+
+            self.prev_task_name = task.name
+            if task.name != "pause" and not getattr(task, 'one_shot', False):
+                self.move_to_waiting_queue(task)
+            elif getattr(task, 'one_shot', False):
+                print("one-shot task complete, not re-queuing")
+            else:
+                print("pause task skipping adding back ")
+        else:
+            
+            self.active_queue.add(task, priority, exec_time)
+
+    def move_to_waiting_queue(self, task):
+        logs.logger.debug(f"adding {task.name} to waiting queue" ) 
+        next_execution_time = time.time() + task.get_requeue_delay()
+        priority_level = task.get_priority_level()
+        self.waiting_queue.add(task,priority_level , next_execution_time)
+
+
+
+def load_resolution_data(file_path):
     try:
-        if getattr(settings, "RENDER_ENABLED", True):
-            from render_sweep import build_render_task
-            t = build_render_task()
-            if t:
-                scheduler.enqueue(t, priority=int(getattr(settings, "RENDER_PRIORITY", 9999)))
-    except Exception as e:
-        logs.logger.error(f"render bootstrap failed: {e}")
+        with open(file_path, 'r') as file:
+            data = file.read().strip()
+            if not data:
+                logs.logger.warning(f"warning: {file_path} is empty no tasks added.")
+                return []
+            return json.loads(data)
+    except (json.JSONDecodeError, FileNotFoundError) as e:
+        print(f"error loading JSON from {file_path}: {e}")
+        return []
 
-    try:
-        if getattr(settings, "GACHA_ENABLED", False):
-            EVENT_LOG.add("gacha: enabled")
-        if getattr(settings, "PEGO_ENABLED", False):
-            EVENT_LOG.add("pego: enabled")
-    except Exception as e:
-        logs.logger.error(f"toggle check failed: {e}")
 
-def main() -> None:
+def main():
+    global scheduler
     global started
-    if started:
-        return
+    scheduler = task_scheduler()
+    
+    pego_data = load_resolution_data("json_files/pego.json")
+    for entry_pego in pego_data:
+        name = entry_pego["name"]
+        teleporter = entry_pego["teleporter"]
+        delay = entry_pego["delay"]
+        task = stations.pego_station(name,teleporter,delay)
+        scheduler.add_task(task)
+
+    gacha_data = load_resolution_data("json_files/gacha.json")
+    for entry_gacha in gacha_data:
+        name = entry_gacha["name"]
+        teleporter = entry_gacha["teleporter"]
+        direction = entry_gacha["side"]
+        resource = entry_gacha["resource_type"]
+        if resource == "collect":
+            depo = entry_gacha["depo_tp"]
+            task = stations.snail_pheonix(name,teleporter,direction,depo)
+        else:
+            task = stations.gacha_station(name, teleporter, direction)
+        scheduler.add_task(task)
+        
+
+    # Sparkpowder station definitions (enqueued later after all pego tasks have run once in a cycle)
+    sparkpowder_data = load_resolution_data("json_files/sparkpowder.json")
+    scheduler._sparkpowder_task_defs = sparkpowder_data
+
+    scheduler.add_task(stations.render_station())
+    logs.logger.info("scheduler now running")
     started = True
-    EVENT_LOG.add("bootstrap")
-    try:
-        _bootstrap_tasks()
-        scheduler.run()
-    finally:
-        started = False
+    scheduler.run()
 
 if __name__ == "__main__":
+    time.sleep(2)
     main()
