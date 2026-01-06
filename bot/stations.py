@@ -128,6 +128,54 @@ class pego_station(base_task):
         return self.delay # delay cannot be constant as stations can cover different amounts of space each |||| 2 stacks of berries to 1 crystal 4 gachas to 1 pego
     
     
+class sparkpowder_station(base_task):
+    """
+    One-shot sparkpowder cycle. Placeholder-only: teleports to configured MegaLab stations and deposit points.
+    You will fill in the exact look angles + inventory interactions later.
+    """
+    def __init__(self):
+        super().__init__()
+        self.name = "sparkpowder"
+        self.one_shot = True  # task_manager checks this to avoid re-queueing
+
+    def execute(self):
+        player_state.check_state()
+
+        if not getattr(settings, "sparkpowder_enabled", False):
+            logs.logger.info("[Sparkpowder] Disabled in settings; skipping.")
+            return
+
+        megalab_tps = getattr(settings, "sparkpowder_megalab_teleporters", [])
+        deposit_tps = getattr(settings, "sparkpowder_deposit_teleporters", [])
+
+        if not megalab_tps:
+            logs.logger.warning("[Sparkpowder] No MegaLab teleporters configured; skipping crafting step.")
+        else:
+            for tp_name in megalab_tps:
+                meta = custom_stations.get_station_metadata(tp_name)
+                logs.logger.info(f"[Sparkpowder] Teleport -> MegaLab: {tp_name}")
+                teleporter.teleport_not_default(meta)
+                time.sleep(0.5 * getattr(settings, "lag_offset", 1.0))
+                logs.logger.info(f"[Sparkpowder] TODO: craft sparkpowder at {tp_name}")
+
+        if not deposit_tps:
+            logs.logger.warning("[Sparkpowder] No deposit teleporters configured; skipping deposit step.")
+        else:
+            for tp_name in deposit_tps:
+                meta = custom_stations.get_station_metadata(tp_name)
+                logs.logger.info(f"[Sparkpowder] Teleport -> Deposit: {tp_name}")
+                teleporter.teleport_not_default(meta)
+                time.sleep(0.5 * getattr(settings, "lag_offset", 1.0))
+                logs.logger.info(f"[Sparkpowder] TODO: deposit sparkpowder at {tp_name}")
+
+    def get_priority_level(self):
+        # Between pego (2) and gacha (3)
+        return 2.5
+
+    def get_requeue_delay(self):
+        # Not used for one-shot tasks, but keep for interface completeness.
+        return getattr(settings, "sparkpowder_requeue_delay", 1800)
+
 class render_station(base_task):
     def __init__(self):
         super().__init__()
