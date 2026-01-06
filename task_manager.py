@@ -114,9 +114,11 @@ class task_scheduler(metaclass=SingletonMeta):
             self._pego_done = set()
             self._gacha_done = set()
 
-            # sparkpowder: enqueue once after all pego tasks in a cycle
+            # sparkpowder: configured as per-station one-shot tasks enqueued once after all pego tasks in a cycle
+            self._sparkpowder_task_defs = []  # set in main() from json_files/sparkpowder.json
             self._sparkpowder_enqueued = False
-            self._sparkpowder_done = False
+            self._sparkpowder_all = set()
+            self._sparkpowder_done = set()
 
 
     def add_task(self, task):
@@ -134,6 +136,8 @@ class task_scheduler(metaclass=SingletonMeta):
                 self._pego_all.add(task.name)
             elif isinstance(task, stations.gacha_station):
                 self._gacha_all.add(task.name)
+            elif isinstance(task, stations.sparkpowder_station):
+                self._sparkpowder_all.add(task.name)
         except Exception:
             pass
 
@@ -186,17 +190,25 @@ class task_scheduler(metaclass=SingletonMeta):
                 self._pego_done.add(task.name)
             elif isinstance(task, stations.gacha_station):
                 self._gacha_done.add(task.name)
-
-
             # Mark sparkpowder completion
             if isinstance(task, stations.sparkpowder_station):
-                self._sparkpowder_done = True
+                self._sparkpowder_done.add(task.name)
 
             # Enqueue sparkpowder once all pego tasks have run in this cycle
             if (not self._sparkpowder_enqueued) and getattr(settings, 'sparkpowder_enabled', False):
                 if len(self._pego_all) > 0 and self._pego_done.issuperset(self._pego_all):
                     self._sparkpowder_enqueued = True
-                    self.add_task(stations.sparkpowder_station())
+                    if not self._sparkpowder_task_defs:
+                        logs.logger.warning("[Sparkpowder] sparkpowder.json is empty or not loaded; nothing to enqueue.")
+                    else:
+                        for entry in self._sparkpowder_task_defs:
+                            sp_name = entry.get("name") or entry.get("station_name") or entry.get("teleporter")
+                            sp_tp = entry.get("teleporter") or entry.get("station_name")
+                            sp_delay = entry.get("delay", 0)
+                            if not sp_name or not sp_tp:
+                                logs.logger.warning(f"[Sparkpowder] Invalid entry in sparkpowder.json: {entry}")
+                                continue
+                            self.add_task(stations.sparkpowder_station(sp_name, sp_tp, sp_delay))
             # Determine cycle completion (only when both sets are non-empty)
             cycle_complete = (
                 len(self._pego_all) > 0 and len(self._gacha_all) > 0 and
@@ -242,7 +254,8 @@ class task_scheduler(metaclass=SingletonMeta):
                 self._maintenance_enqueued = False
                 self._maintenance_due_deferred = False
                 self._sparkpowder_enqueued = False
-                self._sparkpowder_done = False
+                self._sparkpowder_all.clear()
+                self._sparkpowder_done.clear()
 
             # ------------------------------------------
 
@@ -304,6 +317,11 @@ def main():
             task = stations.gacha_station(name, teleporter, direction)
         scheduler.add_task(task)
         
+
+    # Sparkpowder station definitions (enqueued later after all pego tasks have run once in a cycle)
+    sparkpowder_data = load_resolution_data("json_files/sparkpowder.json")
+    scheduler._sparkpowder_task_defs = sparkpowder_data
+
     scheduler.add_task(stations.render_station())
     logs.logger.info("scheduler now running")
     started = True
@@ -312,5 +330,3 @@ def main():
 if __name__ == "__main__":
     time.sleep(2)
     main()
-
-
