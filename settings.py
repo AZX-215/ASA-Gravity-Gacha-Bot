@@ -20,9 +20,8 @@ crafting: bool = False
 seeds_230: bool = False
 
 # Sparkpowder crafting task (placeholder-only)
-# Each sparkpowder station teleporter is "all-in-one": it has a MegaLab and the dedicated storage boxes.
+# Sparkpowder stations are configured in json_files/sparkpowder.json
 sparkpowder_enabled: bool = False
-sparkpowder_teleporters: list = []  # e.g. ["SPARK_STATION_1", "SPARK_STATION_2", "SPARK_STATION_3", "SPARK_STATION_4"]
 sparkpowder_requeue_delay: int = 1800
 
 # YOUR discord channel IDs and bot API key. To find channel IDs enable developer mode in discord and right click the channel to copy ID.
@@ -35,6 +34,7 @@ discord_api_key: str = ""
 if __name__ =="__main__":
 
     pass
+
 
 
 
