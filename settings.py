@@ -21,9 +21,7 @@ seeds_230: bool = False
 
 # Sparkpowder crafting task (placeholder-only)
 sparkpowder_enabled: bool = False
-sparkpowder_megalab_teleporters: list = []  # 4 Megalab teleporters (names in json_files/stations.json)
-sparkpowder_deposit_teleporters: list = []  # 2 deposit teleporters (names in json_files/stations.json)
-sparkpowder_requeue_delay: int = 1800 #should i keep this?
+sparkpowder_teleporters = ["TP_SPARK_1", "TP_SPARK_2", "TP_SPARK_3", "TP_SPARK_4"]
 
 # YOUR discord channel IDs and bot API key. To find channel IDs enable developer mode in discord and right click the channel to copy ID.
 log_channel_gacha: int = 111111111111111
@@ -35,6 +33,7 @@ discord_api_key: str = ""
 if __name__ =="__main__":
 
     pass
+
 
 
 
