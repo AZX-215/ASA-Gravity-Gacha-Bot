@@ -78,6 +78,27 @@ def transfer_all_from():
         windows.click(variables.get_pixel_loc("transfer_all_from_x"), variables.get_pixel_loc("transfer_all_y"))
         time.sleep(0.1*settings.lag_offset)
 
+
+
+def select_object_inventory_tab():
+    """Clicks the structure-side 'INVENTORY' tab (right panel)."""
+    if is_open():
+        windows.click(
+            variables.get_pixel_loc("structure_inventory_tab_x"),
+            variables.get_pixel_loc("structure_inventory_tab_y"),
+        )
+        time.sleep(0.15 * settings.lag_offset)
+
+
+def select_object_crafting_tab():
+    """Clicks the structure-side 'CRAFTING' tab (right panel)."""
+    if is_open():
+        windows.click(
+            variables.get_pixel_loc("structure_crafting_tab_x"),
+            variables.get_pixel_loc("structure_crafting_tab_y"),
+        )
+        time.sleep(0.15 * settings.lag_offset)
+
 def popcorn_top_row():
     if is_open():
         for count in range(6):
