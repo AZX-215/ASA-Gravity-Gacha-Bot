@@ -30,6 +30,7 @@ def open_crystals():
 def dedi_deposit(height):
     if height == 3:
         utils.turn_up(15)
+        time.sleep(0.3*settings.lag_offset)
         utils.turn_left(10)
         time.sleep(0.3*settings.lag_offset)
         utils.press_key("Use")
@@ -39,6 +40,7 @@ def dedi_deposit(height):
         utils.press_key("Use")
         time.sleep(0.3*settings.lag_offset)
         utils.turn_left(30)
+        time.sleep(0.3*settings.lag_offset)
         utils.turn_down(15)
         time.sleep(0.3*settings.lag_offset)
         utils.turn_left(10)
@@ -59,7 +61,9 @@ def dedi_deposit(height):
         utils.press_key("Use")
         time.sleep(0.3*settings.lag_offset)
         utils.press_key("Run")
+        time.sleep(0.3*settings.lag_offset)
         utils.turn_up(30)
+        time.sleep(0.3*settings.lag_offset)
         utils.turn_right(10)
         time.sleep(0.1*settings.lag_offset)
 
@@ -98,7 +102,9 @@ def dedi_deposit_alt(height):
         utils.press_key("Use")
         time.sleep(0.3*settings.lag_offset)
         utils.press_key("Run")
+        time.sleep(0.3*settings.lag_offset)
         utils.turn_up(30)
+        time.sleep(0.3*settings.lag_offset)
         utils.turn_right(10)
         time.sleep(0.4*settings.lag_offset)
         utils.turn_left(90)
@@ -118,6 +124,7 @@ def dedi_deposit_alt(height):
         utils.press_key("Use")
         time.sleep(0.4*settings.lag_offset)
         utils.press_key("Run")
+        time.sleep(0.3*settings.lag_offset)
         utils.turn_up(15)
         time.sleep(0.4*settings.lag_offset)
         utils.turn_right(180)
@@ -137,6 +144,7 @@ def dedi_deposit_alt(height):
         utils.press_key("Use")
         time.sleep(0.4*settings.lag_offset)
         utils.press_key("Run")
+        time.sleep(0.3*settings.lag_offset)
         utils.turn_up(15)
         time.sleep(0.4*settings.lag_offset)
         utils.turn_left(90)
@@ -297,4 +305,5 @@ def deposit_all(metadata):
         collect_grindables(grindables_metadata)
     else:
         drop_useless()
+
 
