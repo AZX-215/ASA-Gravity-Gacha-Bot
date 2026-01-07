@@ -1,1 +1,1 @@
-Automated gacha bot for ark survival ascended
+Automating ark survival ascended.
