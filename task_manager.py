@@ -122,11 +122,11 @@ class task_scheduler(metaclass=SingletonMeta):
 
 
     def add_task(self, task):
-        
+        # First run: allow a task-specific initial delay (used by one-shot crafting tasks)
         if not getattr(task, 'has_run_before', False):
-            next_execution_time = time.time()  
+            next_execution_time = time.time() + float(getattr(task, 'initial_delay', 0) or 0)
         else:
-            next_execution_time = time.time() + task.get_requeue_delay()  
+            next_execution_time = time.time() + task.get_requeue_delay()
 
         task.has_run_before = True
 
@@ -195,7 +195,8 @@ class task_scheduler(metaclass=SingletonMeta):
                 self._sparkpowder_done.add(task.name)
 
             # Enqueue sparkpowder once all pego tasks have run in this cycle
-            if (not self._sparkpowder_enqueued) and getattr(settings, 'sparkpowder_enabled', False):
+            # Gate by BOTH the global crafting toggle and the sparkpowder feature toggle.
+            if (not self._sparkpowder_enqueued) and getattr(settings, 'crafting', False) and getattr(settings, 'sparkpowder_enabled', False):
                 if len(self._pego_all) > 0 and self._pego_done.issuperset(self._pego_all):
                     self._sparkpowder_enqueued = True
                     if not self._sparkpowder_task_defs:
@@ -205,10 +206,11 @@ class task_scheduler(metaclass=SingletonMeta):
                             sp_name = entry.get("name") or entry.get("station_name") or entry.get("teleporter")
                             sp_tp = entry.get("teleporter") or entry.get("station_name")
                             sp_delay = entry.get("delay", 0)
+                            sp_height = entry.get("deposit_height", 2)
                             if not sp_name or not sp_tp:
                                 logs.logger.warning(f"[Sparkpowder] Invalid entry in sparkpowder.json: {entry}")
                                 continue
-                            self.add_task(stations.sparkpowder_station(sp_name, sp_tp, sp_delay))
+                            self.add_task(stations.sparkpowder_station(sp_name, sp_tp, sp_delay, sp_height))
             # Determine cycle completion (only when both sets are non-empty)
             cycle_complete = (
                 len(self._pego_all) > 0 and len(self._gacha_all) > 0 and

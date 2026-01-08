@@ -24,6 +24,11 @@ seeds_230: bool = False
 sparkpowder_enabled: bool = False
 sparkpowder_requeue_delay: int = 1800
 
+# Sparkpowder task tuning (safe defaults; adjust after in-game testing)
+sparkpowder_look_degrees: float = 45.0
+sparkpowder_turn_degrees: float = 180.0
+sparkpowder_craft_seconds: float = 2.5
+
 # YOUR discord channel IDs and bot API key. To find channel IDs enable developer mode in discord and right click the channel to copy ID.
 log_channel_gacha: int = 111111111111111
 log_active_queue: int = 111111111111111

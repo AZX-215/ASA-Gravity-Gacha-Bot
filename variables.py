@@ -22,10 +22,12 @@ data = {
     "first_bed_slot_y": 300,
     "close_inv_x": 2400,
     "close_inv_y": 90,
-    "structure_inventory_tab_x": 1660,
-    "structure_inventory_tab_y": 170,
-    "structure_crafting_tab_x": 2150,
-    "structure_crafting_tab_y": 175,
+    # Structure-side tabs (right panel) for inventories like Megalab/ChemBench
+    # (1440p baseline; auto-scaled to 1080p via get_pixel_loc)
+    "structure_inventory_tab_x": 1695,
+    "structure_inventory_tab_y": 180,
+    "structure_crafting_tab_x": 2145,
+    "structure_crafting_tab_y": 177,
     "inv_slot_start_x": 230,
     "inv_slot_start_y": 315,
     "inv_slot_end_x": 350,
