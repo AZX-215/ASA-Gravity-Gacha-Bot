@@ -130,14 +130,17 @@ class pego_station(base_task):
     
     
 class sparkpowder_station(base_task):
-    
+    """
+    Sparkpowder crafting task for one "all-in-one" station (teleporter).
+    Placeholder-only: teleport -> (TODO craft) -> (TODO deposit).
+    You will fill in the exact look angles + inventory interactions later.
+    """
     def __init__(self, name, teleporter_name, delay=0):
         super().__init__()
         self.name = name
         self.teleporter_name = teleporter_name
         self.delay = delay
-        # Recurring task: it will be re-queued by task_manager using get_requeue_delay().
-        self.one_shot = False
+        self.one_shot = False  # recurring task (re-queued like pegos/gachas)
 
     def execute(self):
         player_state.check_state()
@@ -162,12 +165,10 @@ class sparkpowder_station(base_task):
         return 3
 
     def get_requeue_delay(self):
-        # Drive spark scheduling the same way pego stations do:
-        # - If json_files/sparkpowder.json provides a per-station delay, use it.
-        # - Otherwise fall back to settings.sparkpowder_requeue_delay.
-        if self.delay and self.delay > 0:
+        # Re-queue interval (seconds). Prefer per-station delay from sparkpowder.json; fallback to global.
+        if getattr(self, "delay", 0):
             return self.delay
-        return getattr(settings, "sparkpowder_requeue_delay", 2000)
+        return getattr(settings, "sparkpowder_requeue_delay", 1800)
 class render_station(base_task):
     def __init__(self):
         super().__init__()
