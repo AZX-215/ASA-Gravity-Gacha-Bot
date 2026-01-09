@@ -1,12 +1,7 @@
 [
     {
-        "name": "vault1",
-        "side": "left",
-        "items":["fabricated","pump"]
-    },
-    {
-        "name": "vault2",
-        "side": "right",
-        "items":["riot","assault"]
+        "name": "vault",
+        "side": "behind",
+        "items":["riot"]
     }
 ]
