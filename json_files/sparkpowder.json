@@ -1,6 +1,6 @@
 [
-  { "station_name": "GACHA-SPARK #001", "delay": 0, "deposit_height": 2 },
-  { "station_name": "GACHA-SPARK #002", "delay": 0, "deposit_height": 2 },
-  { "station_name": "GACHA-SPARK #003", "delay": 0, "deposit_height": 2 },
-  { "station_name": "GACHA-SPARK #004", "delay": 0, "deposit_height": 2 }
+  { "station_name": "GACHA-SPARK #001", "delay": 0, "deposit_height": 3 },
+  { "station_name": "GACHA-SPARK #002", "delay": 0, "deposit_height": 3 },
+  { "station_name": "GACHA-SPARK #003", "delay": 0, "deposit_height": 3 },
+  { "station_name": "GACHA-SPARK #004", "delay": 0, "deposit_height": 3 }
 ]
