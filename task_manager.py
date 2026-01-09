@@ -114,7 +114,9 @@ class task_scheduler(metaclass=SingletonMeta):
             self._pego_done = set()
             self._gacha_done = set()
 
-            # sparkpowder: configured as per-station one-shot tasks enqueued once after all pego tasks in a cycle
+            # sparkpowder: task defs are loaded from json_files/sparkpowder.json and
+            # enqueued ONCE (per runtime) as soon as all pego tasks have executed at least once.
+            # After that, sparkpowder tasks behave like other stations (re-queue via get_requeue_delay()).
             self._sparkpowder_task_defs = []  # set in main() from json_files/sparkpowder.json
             self._sparkpowder_enqueued = False
             self._sparkpowder_all = set()
@@ -122,11 +124,11 @@ class task_scheduler(metaclass=SingletonMeta):
 
 
     def add_task(self, task):
-        # First run: allow a task-specific initial delay (used by one-shot crafting tasks)
+        
         if not getattr(task, 'has_run_before', False):
-            next_execution_time = time.time() + float(getattr(task, 'initial_delay', 0) or 0)
+            next_execution_time = time.time()  
         else:
-            next_execution_time = time.time() + task.get_requeue_delay()
+            next_execution_time = time.time() + task.get_requeue_delay()  
 
         task.has_run_before = True
 
@@ -195,8 +197,7 @@ class task_scheduler(metaclass=SingletonMeta):
                 self._sparkpowder_done.add(task.name)
 
             # Enqueue sparkpowder once all pego tasks have run in this cycle
-            # Gate by BOTH the global crafting toggle and the sparkpowder feature toggle.
-            if (not self._sparkpowder_enqueued) and getattr(settings, 'crafting', False) and getattr(settings, 'sparkpowder_enabled', False):
+            if (not self._sparkpowder_enqueued) and getattr(settings, 'sparkpowder_enabled', False):
                 if len(self._pego_all) > 0 and self._pego_done.issuperset(self._pego_all):
                     self._sparkpowder_enqueued = True
                     if not self._sparkpowder_task_defs:
@@ -205,12 +206,15 @@ class task_scheduler(metaclass=SingletonMeta):
                         for entry in self._sparkpowder_task_defs:
                             sp_name = entry.get("name") or entry.get("station_name") or entry.get("teleporter")
                             sp_tp = entry.get("teleporter") or entry.get("station_name")
-                            sp_delay = entry.get("delay", 0)
-                            sp_height = entry.get("deposit_height", 2)
+                            # Treat JSON "delay" the same way pego stations do: re-queue interval.
+                            # If missing/invalid, fall back to settings.sparkpowder_requeue_delay.
+                            sp_delay = entry.get("delay", None)
+                            if not sp_delay or sp_delay <= 0:
+                                sp_delay = getattr(settings, "sparkpowder_requeue_delay", 1800)
                             if not sp_name or not sp_tp:
                                 logs.logger.warning(f"[Sparkpowder] Invalid entry in sparkpowder.json: {entry}")
                                 continue
-                            self.add_task(stations.sparkpowder_station(sp_name, sp_tp, sp_delay, sp_height))
+                            self.add_task(stations.sparkpowder_station(sp_name, sp_tp, sp_delay))
             # Determine cycle completion (only when both sets are non-empty)
             cycle_complete = (
                 len(self._pego_all) > 0 and len(self._gacha_all) > 0 and
@@ -255,9 +259,10 @@ class task_scheduler(metaclass=SingletonMeta):
                 self._gacha_done.clear()
                 self._maintenance_enqueued = False
                 self._maintenance_due_deferred = False
-                self._sparkpowder_enqueued = False
-                self._sparkpowder_all.clear()
-                self._sparkpowder_done.clear()
+                # NOTE: Do not reset sparkpowder scheduling here.
+                # Sparkpowder tasks are enqueued once (after the first pego round) and then
+                # re-queue themselves like other stations. Resetting _sparkpowder_enqueued
+                # would cause duplicates to be enqueued after each maintenance cycle.
 
             # ------------------------------------------
 

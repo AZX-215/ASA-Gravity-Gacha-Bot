@@ -8,7 +8,6 @@ from ASA.strucutres import bed , teleporter , inventory
 from ASA.player import buffs , console , player_state , tribelog , player_inventory
 from ASA.stations import custom_stations
 from bot import config , deposit , gacha , iguanadon , pego 
-from crafting.ARB import megalab as megalab_crafting
 from abc import ABC ,abstractmethod
 global berry_station
 global last_berry
@@ -131,23 +130,24 @@ class pego_station(base_task):
     
     
 class sparkpowder_station(base_task):
-
-    def __init__(self, name, teleporter_name, delay=0, deposit_height=2):
+    """
+    Sparkpowder crafting task for one "all-in-one" station (teleporter).
+    Placeholder-only: teleport -> (TODO craft) -> (TODO deposit).
+    You will fill in the exact look angles + inventory interactions later.
+    """
+    def __init__(self, name, teleporter_name, delay=0):
         super().__init__()
         self.name = name
         self.teleporter_name = teleporter_name
-        # Per-station initial delay (read from json_files/sparkpowder.json)
-        self.initial_delay = delay
         self.delay = delay
-        self.deposit_height = deposit_height
-        self.one_shot = True  # task_manager checks this to avoid re-queueing
+        # Recurring task: it will be re-queued by task_manager using get_requeue_delay().
+        self.one_shot = False
 
     def execute(self):
         player_state.check_state()
 
-        # Gate by BOTH the global crafting toggle and the sparkpowder feature toggle.
-        if not getattr(settings, "crafting", False) or not getattr(settings, "sparkpowder_enabled", False):
-            logs.logger.info("[Sparkpowder] Disabled in settings (crafting and/or sparkpowder_enabled); skipping.")
+        if not getattr(settings, "sparkpowder_enabled", False):
+            logs.logger.info("[Sparkpowder] Disabled in settings; skipping.")
             return
 
         meta = custom_stations.get_station_metadata(self.teleporter_name)
@@ -155,61 +155,22 @@ class sparkpowder_station(base_task):
         teleporter.teleport_not_default(meta)
         time.sleep(0.5 * getattr(settings, "lag_offset", 1.0))
 
-        # Ensure pitch starts neutral before we do our look-up/down offsets
-        utils.pitch_zero()
-        time.sleep(0.15 * settings.lag_offset)
+        # TODO (next step): Craft sparkpowder at the MegaLab here.
+        logs.logger.info(f"[Sparkpowder] TODO: craft sparkpowder at {self.teleporter_name}")
 
-        # Stations face the common yaw; Megalab/Dedis are behind.
-        utils.turn_right(getattr(settings, "sparkpowder_turn_degrees", 180))
-        time.sleep(0.25 * settings.lag_offset)
-
-        # Look up to face the Megalab
-        utils.turn_up(getattr(settings, "sparkpowder_look_degrees", 45))
-        time.sleep(0.25 * settings.lag_offset)
-
-        # Open Megalab inventory, transfer existing sparkpowder, then craft more
-        inventory.open()
-        if not template.template_await_true(template.check_template, 1, "megalab", 0.7):
-            logs.logger.warning("[Sparkpowder] Megalab template not detected after open; retrying once")
-            inventory.close()
-            time.sleep(0.25 * settings.lag_offset)
-            player_state.check_state()
-            inventory.open()
-
-        if template.template_await_true(template.check_template, 1, "megalab", 0.7):
-            megalab_crafting.run_sparkpowder_cycle(craft_seconds=getattr(settings, "sparkpowder_craft_seconds", 2.5))
-        else:
-            logs.logger.error("[Sparkpowder] Unable to open Megalab inventory; skipping craft/deposit for this station")
-            inventory.close()
-            utils.pitch_zero()
-            utils.set_yaw(meta.yaw)
-            return
-
-        inventory.close()
-        time.sleep(0.25 * settings.lag_offset)
-
-        # Return pitch back to neutral (we looked up earlier)
-        utils.turn_down(getattr(settings, "sparkpowder_look_degrees", 45))
-        time.sleep(0.25 * settings.lag_offset)
-
-         # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned
-        utils.pitch_zero()
-        utils.set_yaw(meta.yaw)
-        
-        # Deposit to the station's dedicated storage boxes
-        deposit.dedi_deposit_custom(self.deposit_height)
-        time.sleep(0.25 * settings.lag_offset)
-
-        # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned
-        utils.pitch_zero()
-        utils.set_yaw(meta.yaw)
+        # TODO (next step): Deposit crafted sparkpowder into the dedicated storage boxes here.
+        logs.logger.info(f"[Sparkpowder] TODO: deposit sparkpowder to dedicated storage at {self.teleporter_name}")
 
     def get_priority_level(self):
         # After pego (2), before gacha (4)
         return 3
 
     def get_requeue_delay(self):
-        # One-shot tasks are not re-queued, but keep a sensible default for consistency.
+        # Drive spark scheduling the same way pego stations do:
+        # - If json_files/sparkpowder.json provides a per-station delay, use it.
+        # - Otherwise fall back to settings.sparkpowder_requeue_delay.
+        if self.delay and self.delay > 0:
+            return self.delay
         return getattr(settings, "sparkpowder_requeue_delay", 1800)
 class render_station(base_task):
     def __init__(self):
