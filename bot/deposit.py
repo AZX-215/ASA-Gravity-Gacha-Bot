@@ -112,13 +112,6 @@ def dedi_deposit_alt(height):
 
 
 def dedi_deposit_custom(height):
-    """
-    Custom 2-high dedicated storage deposit pattern.
-
-    This is intentionally minimal/safe: it mirrors the approach you described
-    for your Spark stations and can be tuned by adjusting the turn angles and
-    sleeps once you verify in-game.
-    """
     if height == 2:
         utils.turn_down(10)
         time.sleep(0.3*settings.lag_offset)
