@@ -131,7 +131,6 @@ class pego_station(base_task):
     
     
 class sparkpowder_station(base_task):
-    """Craft + deposit sparkpowder at one Spark station."""
 
     def __init__(self, name, teleporter_name, delay=0, deposit_height=2):
         super().__init__()
@@ -193,6 +192,10 @@ class sparkpowder_station(base_task):
         utils.turn_down(getattr(settings, "sparkpowder_look_degrees", 45))
         time.sleep(0.25 * settings.lag_offset)
 
+         # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned
+        utils.pitch_zero()
+        utils.set_yaw(meta.yaw)
+        
         # Deposit to the station's dedicated storage boxes
         deposit.dedi_deposit_custom(self.deposit_height)
         time.sleep(0.25 * settings.lag_offset)
