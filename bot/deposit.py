@@ -112,19 +112,22 @@ def dedi_deposit_alt(height):
 
 
 def dedi_deposit_custom(height):
-    if height == 2:
-        utils.turn_down(10)
+    if height == 3:
+        utils.turn_up(15)
         time.sleep(0.3*settings.lag_offset)
         utils.press_key("Use")
         time.sleep(0.3*settings.lag_offset)
-
-        utils.turn_up(20)
+        utils.turn_down(30)
         time.sleep(0.3*settings.lag_offset)
         utils.press_key("Use")
         time.sleep(0.3*settings.lag_offset)
-
-        utils.turn_down(10)
+        utils.turn_down(15)
         time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Use")
+        time.sleep(0.3*settings.lag_offset)
+        utils.turn_up(30)
+        time.sleep(0.3*settings.lag_offset)
+
     else:
         logs.logger.warning(f"dedi_deposit_custom: unsupported height={height}; no action taken")
 
