@@ -130,11 +130,7 @@ class pego_station(base_task):
     
     
 class sparkpowder_station(base_task):
-    """
-    Sparkpowder crafting task for one "all-in-one" station (teleporter).
-    Placeholder-only: teleport -> (TODO craft) -> (TODO deposit).
-    You will fill in the exact look angles + inventory interactions later.
-    """
+    
     def __init__(self, name, teleporter_name, delay=0):
         super().__init__()
         self.name = name
@@ -171,7 +167,7 @@ class sparkpowder_station(base_task):
         # - Otherwise fall back to settings.sparkpowder_requeue_delay.
         if self.delay and self.delay > 0:
             return self.delay
-        return getattr(settings, "sparkpowder_requeue_delay", 1800)
+        return getattr(settings, "sparkpowder_requeue_delay", 2000)
 class render_station(base_task):
     def __init__(self):
         super().__init__()
