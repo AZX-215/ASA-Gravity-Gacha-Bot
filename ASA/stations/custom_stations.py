@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 import settings
 
 class station_metadata():
@@ -13,15 +14,18 @@ class station_metadata():
         self.side = None
         self.resource = None
 
+
 def get_custom_stations():
-    file_path = "json_files/stations.json"
+    # Resolve relative paths from the project root (works regardless of current working directory).
+    base_dir = Path(__file__).resolve().parents[2]
+    file_path = base_dir / "json_files" / "stations.json"
     try:
-        with open(file_path, 'r') as file:
+        with open(file_path, 'r', encoding='utf-8') as file:
             data = file.read().strip()
             if not data:
                 return []
             return json.loads(data)
-    except (json.JSONDecodeError, FileNotFoundError) as e:
+    except (json.JSONDecodeError, FileNotFoundError):
         return []
 
 
