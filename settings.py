@@ -15,14 +15,18 @@ height_grind: int = 3
 command_prefix: str = "%"
 server_number: str = 0
 singleplayer: bool = False
+seeds_230: bool = False
+external_berry: bool = False
+
+# Crafting task toggles (crafting must also be True)
+crafting: bool = True # Toggle off for standalone gachabot.
+sparkpowder_enabled: bool = False # Sparkpowder stations are configured in json_files/sparkpowder.json
+gunpowder_enabled: bool = False # Gunpowder stations are configured in json_files/gunpowder.json
+
+# Task toggles
 pego_enabled: bool = True
 gacha_enabled: bool = True
 render_enabled: bool = True
-crafting: bool = True # Toggle off for standalone gachabot.
-seeds_230: bool = False
-external_berry: bool = False
-sparkpowder_enabled: bool = False # Sparkpowder stations are configured in json_files/sparkpowder.json
-gunpowder_enabled: bool = False # Gunpowder stations are configured in json_files/gunpowder.json
 
 sparkpowder_look_degrees: float = 45.0 # Sparkpowder task tuning (safe defaults; adjust after in-game testing)
 sparkpowder_turn_degrees: float = 180.0
