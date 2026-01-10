@@ -114,14 +114,25 @@ class task_scheduler(metaclass=SingletonMeta):
             self._pego_done = set()
             self._gacha_done = set()
 
+            # sparkpowder: configured as per-station one-shot tasks enqueued once after all pego tasks in a cycle
+            self._sparkpowder_task_defs = []  # set in main() from json_files/sparkpowder.json
+            self._sparkpowder_enqueued = False
+            self._sparkpowder_all = set()
+            self._sparkpowder_done = set()
+
+            # gunpowder: same pattern as sparkpowder, using json_files/gunpowder.json
+            self._gunpowder_task_defs = []
+            self._gunpowder_enqueued = False
+            self._gunpowder_all = set()
+            self._gunpowder_done = set()
 
 
     def add_task(self, task):
-        
+        # First run: allow a task-specific initial delay (used by one-shot crafting tasks)
         if not getattr(task, 'has_run_before', False):
-            next_execution_time = time.time()  
+            next_execution_time = time.time() + float(getattr(task, 'initial_delay', 0) or 0)
         else:
-            next_execution_time = time.time() + task.get_requeue_delay()  
+            next_execution_time = time.time() + task.get_requeue_delay()
 
         task.has_run_before = True
 
@@ -131,6 +142,10 @@ class task_scheduler(metaclass=SingletonMeta):
                 self._pego_all.add(task.name)
             elif isinstance(task, stations.gacha_station):
                 self._gacha_all.add(task.name)
+            elif isinstance(task, stations.sparkpowder_station):
+                self._sparkpowder_all.add(task.name)
+            elif isinstance(task, stations.gunpowder_station):
+                self._gunpowder_all.add(task.name)
         except Exception:
             pass
 
@@ -183,6 +198,50 @@ class task_scheduler(metaclass=SingletonMeta):
                 self._pego_done.add(task.name)
             elif isinstance(task, stations.gacha_station):
                 self._gacha_done.add(task.name)
+            # Mark sparkpowder completion
+            if isinstance(task, stations.sparkpowder_station):
+                self._sparkpowder_done.add(task.name)
+
+            # Mark gunpowder completion
+            if isinstance(task, stations.gunpowder_station):
+                self._gunpowder_done.add(task.name)
+
+            # Enqueue sparkpowder once all pego tasks have run in this cycle
+            # Gate by BOTH the global crafting toggle and the sparkpowder feature toggle.
+            if (not self._sparkpowder_enqueued) and getattr(settings, 'crafting', False) and getattr(settings, 'sparkpowder_enabled', False):
+                if len(self._pego_all) > 0 and self._pego_done.issuperset(self._pego_all):
+                    self._sparkpowder_enqueued = True
+                    if not self._sparkpowder_task_defs:
+                        logs.logger.warning("[Sparkpowder] sparkpowder.json is empty or not loaded; nothing to enqueue.")
+                    else:
+                        for entry in self._sparkpowder_task_defs:
+                            sp_name = entry.get("name") or entry.get("station_name") or entry.get("teleporter")
+                            sp_tp = entry.get("teleporter") or entry.get("station_name")
+                            sp_delay = entry.get("delay", 0)
+                            sp_height = entry.get("deposit_height", 2)
+                            if not sp_name or not sp_tp:
+                                logs.logger.warning(f"[Sparkpowder] Invalid entry in sparkpowder.json: {entry}")
+                                continue
+                            self.add_task(stations.sparkpowder_station(sp_name, sp_tp, sp_delay, sp_height))
+
+            # Enqueue gunpowder once all pego tasks have run in this cycle
+            # Gate by BOTH the global crafting toggle and the gunpowder feature toggle.
+            if (not self._gunpowder_enqueued) and getattr(settings, 'crafting', False) and getattr(settings, 'gunpowder_enabled', False):
+                if len(self._pego_all) > 0 and self._pego_done.issuperset(self._pego_all):
+                    self._gunpowder_enqueued = True
+                    if not self._gunpowder_task_defs:
+                        logs.logger.warning("[Gunpowder] gunpowder.json is empty or not loaded; nothing to enqueue.")
+                    else:
+                        for entry in self._gunpowder_task_defs:
+                            gp_name = entry.get("name") or entry.get("station_name") or entry.get("teleporter")
+                            gp_tp = entry.get("teleporter") or entry.get("station_name")
+                            gp_delay = entry.get("delay", 0)
+                            gp_height = entry.get("deposit_height", 3)
+                            if not gp_name or not gp_tp:
+                                logs.logger.warning(f"[Gunpowder] Invalid entry in gunpowder.json: {entry}")
+                                continue
+                            self.add_task(stations.gunpowder_station(gp_name, gp_tp, gp_delay, gp_height))
+
             # Determine cycle completion (only when both sets are non-empty)
             cycle_complete = (
                 len(self._pego_all) > 0 and len(self._gacha_all) > 0 and
@@ -227,6 +286,12 @@ class task_scheduler(metaclass=SingletonMeta):
                 self._gacha_done.clear()
                 self._maintenance_enqueued = False
                 self._maintenance_due_deferred = False
+                self._sparkpowder_enqueued = False
+                self._sparkpowder_all.clear()
+                self._sparkpowder_done.clear()
+                self._gunpowder_enqueued = False
+                self._gunpowder_all.clear()
+                self._gunpowder_done.clear()
 
             # ------------------------------------------
 
@@ -268,38 +333,36 @@ def main():
     scheduler = task_scheduler()
     
     pego_data = load_resolution_data("json_files/pego.json")
-    if getattr(settings, "pego_enabled", True):
-        for entry_pego in pego_data:
-            name = entry_pego["name"]
-            teleporter = entry_pego["teleporter"]
-            delay = entry_pego["delay"]
-            task = stations.pego_station(name,teleporter,delay)
-            scheduler.add_task(task)
-    else:
-        logs.logger.info("Pego tasks disabled via settings.pego_enabled")
+    for entry_pego in pego_data:
+        name = entry_pego["name"]
+        teleporter = entry_pego["teleporter"]
+        delay = entry_pego["delay"]
+        task = stations.pego_station(name,teleporter,delay)
+        scheduler.add_task(task)
 
     gacha_data = load_resolution_data("json_files/gacha.json")
-    if getattr(settings, "gacha_enabled", True):
-        for entry_gacha in gacha_data:
-            name = entry_gacha["name"]
-            teleporter = entry_gacha["teleporter"]
-            direction = entry_gacha["side"]
-            resource = entry_gacha["resource_type"]
-            if resource == "collect":
-                depo = entry_gacha["depo_tp"]
-                task = stations.snail_pheonix(name,teleporter,direction,depo)
-            else:
-                task = stations.gacha_station(name, teleporter, direction)
-            scheduler.add_task(task)
-    else:
-        logs.logger.info("Gacha tasks disabled via settings.gacha_enabled")
+    for entry_gacha in gacha_data:
+        name = entry_gacha["name"]
+        teleporter = entry_gacha["teleporter"]
+        direction = entry_gacha["side"]
+        resource = entry_gacha["resource_type"]
+        if resource == "collect":
+            depo = entry_gacha["depo_tp"]
+            task = stations.snail_pheonix(name,teleporter,direction,depo)
+        else:
+            task = stations.gacha_station(name, teleporter, direction)
+        scheduler.add_task(task)
+        
 
     # Sparkpowder station definitions (enqueued later after all pego tasks have run once in a cycle)
     sparkpowder_data = load_resolution_data("json_files/sparkpowder.json")
-    if getattr(settings, "render_enabled", True):
-        scheduler.add_task(stations.render_station())
-    else:
-        logs.logger.info("Render task disabled via settings.render_enabled")
+    scheduler._sparkpowder_task_defs = sparkpowder_data
+
+    # Gunpowder station definitions (enqueued later after all pego tasks have run once in a cycle)
+    gunpowder_data = load_resolution_data("json_files/gunpowder.json")
+    scheduler._gunpowder_task_defs = gunpowder_data
+
+    scheduler.add_task(stations.render_station())
     logs.logger.info("scheduler now running")
     started = True
     scheduler.run()

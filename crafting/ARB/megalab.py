@@ -102,3 +102,15 @@ def run_sparkpowder_cycle(craft_seconds: float = 2.5) -> bool:
     transfer_filtered_to_player("spark")
     craft_from_crafting_tab("spark", craft_seconds=craft_seconds)
     return True
+
+
+def run_gunpowder_cycle(craft_seconds: float = 2.5) -> bool:
+    """Same flow as run_sparkpowder_cycle, but filtered to Gunpowder."""
+    if not is_open_megalab():
+        logs.logger.error("Expected Megalab inventory, but Megalab template was not detected.")
+        return False
+
+    # Typing the full item name keeps the first-slot assumption reliable.
+    transfer_filtered_to_player("gunpowder")
+    craft_from_crafting_tab("gunpowder", craft_seconds=craft_seconds)
+    return True
