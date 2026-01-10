@@ -1,6 +1,7 @@
 import heapq
 import time
 import json
+from pathlib import Path
 import settings
 import bot.stations as stations
 import logs.gachalogs as logs
@@ -206,42 +207,6 @@ class task_scheduler(metaclass=SingletonMeta):
             if isinstance(task, stations.gunpowder_station):
                 self._gunpowder_done.add(task.name)
 
-            # Enqueue sparkpowder once all pego tasks have run in this cycle
-            # Gate by BOTH the global crafting toggle and the sparkpowder feature toggle.
-            if (not self._sparkpowder_enqueued) and getattr(settings, 'crafting', False) and getattr(settings, 'sparkpowder_enabled', False):
-                if len(self._pego_all) > 0 and self._pego_done.issuperset(self._pego_all):
-                    self._sparkpowder_enqueued = True
-                    if not self._sparkpowder_task_defs:
-                        logs.logger.warning("[Sparkpowder] sparkpowder.json is empty or not loaded; nothing to enqueue.")
-                    else:
-                        for entry in self._sparkpowder_task_defs:
-                            sp_name = entry.get("name") or entry.get("station_name") or entry.get("teleporter")
-                            sp_tp = entry.get("teleporter") or entry.get("station_name")
-                            sp_delay = entry.get("delay", 0)
-                            sp_height = entry.get("deposit_height", 2)
-                            if not sp_name or not sp_tp:
-                                logs.logger.warning(f"[Sparkpowder] Invalid entry in sparkpowder.json: {entry}")
-                                continue
-                            self.add_task(stations.sparkpowder_station(sp_name, sp_tp, sp_delay, sp_height))
-
-            # Enqueue gunpowder once all pego tasks have run in this cycle
-            # Gate by BOTH the global crafting toggle and the gunpowder feature toggle.
-            if (not self._gunpowder_enqueued) and getattr(settings, 'crafting', False) and getattr(settings, 'gunpowder_enabled', False):
-                if len(self._pego_all) > 0 and self._pego_done.issuperset(self._pego_all):
-                    self._gunpowder_enqueued = True
-                    if not self._gunpowder_task_defs:
-                        logs.logger.warning("[Gunpowder] gunpowder.json is empty or not loaded; nothing to enqueue.")
-                    else:
-                        for entry in self._gunpowder_task_defs:
-                            gp_name = entry.get("name") or entry.get("station_name") or entry.get("teleporter")
-                            gp_tp = entry.get("teleporter") or entry.get("station_name")
-                            gp_delay = entry.get("delay", 0)
-                            gp_height = entry.get("deposit_height", 3)
-                            if not gp_name or not gp_tp:
-                                logs.logger.warning(f"[Gunpowder] Invalid entry in gunpowder.json: {entry}")
-                                continue
-                            self.add_task(stations.gunpowder_station(gp_name, gp_tp, gp_delay, gp_height))
-
             # Determine cycle completion (only when both sets are non-empty)
             cycle_complete = (
                 len(self._pego_all) > 0 and len(self._gacha_all) > 0 and
@@ -315,15 +280,19 @@ class task_scheduler(metaclass=SingletonMeta):
 
 
 def load_resolution_data(file_path):
+    # Resolve relative paths from the project root (works regardless of current working directory).
+    base_dir = Path(__file__).resolve().parent
+    resolved = (base_dir / file_path).resolve() if not Path(file_path).is_absolute() else Path(file_path)
+
     try:
-        with open(file_path, 'r') as file:
+        with open(resolved, 'r', encoding='utf-8') as file:
             data = file.read().strip()
             if not data:
-                logs.logger.warning(f"warning: {file_path} is empty no tasks added.")
+                logs.logger.warning(f"warning: {resolved} is empty no tasks added.")
                 return []
             return json.loads(data)
     except (json.JSONDecodeError, FileNotFoundError) as e:
-        print(f"error loading JSON from {file_path}: {e}")
+        logs.logger.error(f"error loading JSON from {resolved}: {e}")
         return []
 
 
@@ -352,20 +321,40 @@ def main():
         else:
             task = stations.gacha_station(name, teleporter, direction)
         scheduler.add_task(task)
-        
 
-    # Sparkpowder station definitions (enqueued later after all pego tasks have run once in a cycle)
+
+
+    # Sparkpowder stations (queued on startup; delay controls re-queue interval)
     sparkpowder_data = load_resolution_data("json_files/sparkpowder.json")
-    scheduler._sparkpowder_task_defs = sparkpowder_data
+    for entry in sparkpowder_data:
+        sp_name = entry.get("name") or entry.get("station_name") or entry.get("teleporter")
+        sp_tp = entry.get("teleporter") or entry.get("station_name") or entry.get("name")
+        sp_delay = entry.get("delay", 0)
+        sp_initial = entry.get("initial_delay", 0)  # optional one-time startup offset
+        sp_height = entry.get("deposit_height", 3)
+        if not sp_name or not sp_tp:
+            logs.logger.warning(f"[Sparkpowder] Invalid entry in sparkpowder.json: {entry}")
+            continue
+        scheduler.add_task(stations.sparkpowder_station(sp_name, sp_tp, sp_delay, sp_height, sp_initial))
 
-    # Gunpowder station definitions (enqueued later after all pego tasks have run once in a cycle)
+    # Gunpowder stations (queued on startup; delay controls re-queue interval)
     gunpowder_data = load_resolution_data("json_files/gunpowder.json")
-    scheduler._gunpowder_task_defs = gunpowder_data
+    for entry in gunpowder_data:
+        gp_name = entry.get("name") or entry.get("station_name") or entry.get("teleporter")
+        gp_tp = entry.get("teleporter") or entry.get("station_name") or entry.get("name")
+        gp_delay = entry.get("delay", 0)
+        gp_initial = entry.get("initial_delay", 0)  # optional one-time startup offset
+        gp_height = entry.get("deposit_height", 3)
+        if not gp_name or not gp_tp:
+            logs.logger.warning(f"[Gunpowder] Invalid entry in gunpowder.json: {entry}")
+            continue
+        scheduler.add_task(stations.gunpowder_station(gp_name, gp_tp, gp_delay, gp_height, gp_initial))
 
     scheduler.add_task(stations.render_station())
     logs.logger.info("scheduler now running")
     started = True
     scheduler.run()
+
 
 if __name__ == "__main__":
     time.sleep(2)
