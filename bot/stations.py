@@ -132,7 +132,7 @@ class pego_station(base_task):
     
 class sparkpowder_station(base_task):
 
-    def __init__(self, name, teleporter_name, delay=0, deposit_height=2):
+    def __init__(self, name, teleporter_name, delay=0, deposit_height=3):
         super().__init__()
         self.name = name
         self.teleporter_name = teleporter_name
@@ -140,7 +140,7 @@ class sparkpowder_station(base_task):
         self.initial_delay = delay
         self.delay = delay
         self.deposit_height = deposit_height
-        self.one_shot = True  # task_manager checks this to avoid re-queueing
+        self.one_shot = False  # task_manager checks this to avoid re-queueing
 
     def execute(self):
         player_state.check_state()
@@ -223,7 +223,7 @@ class gunpowder_station(base_task):
         self.initial_delay = delay
         self.delay = delay
         self.deposit_height = deposit_height
-        self.one_shot = True  # task_manager checks this to avoid re-queueing
+        self.one_shot = False  # task_manager checks this to avoid re-queueing
 
     def execute(self):
         player_state.check_state()
