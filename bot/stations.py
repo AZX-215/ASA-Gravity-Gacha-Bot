@@ -42,6 +42,10 @@ class gacha_station(base_task):
 
     def execute(self):
         player_state.check_state()
+
+        if not getattr(settings, "gacha_enabled", True):
+            logs.logger.info("[Gacha] Disabled via settings.gacha_enabled; skipping.")
+            return
         global berry_station
         global last_berry
         
@@ -96,6 +100,10 @@ class pego_station(base_task):
 
     def execute(self):
         player_state.check_state()
+
+        if not getattr(settings, "pego_enabled", True):
+            logs.logger.info("[Pego] Disabled via settings.pego_enabled; skipping.")
+            return
         
         pego_metadata = custom_stations.get_station_metadata(self.teleporter_name)
         dropoff_metadata = custom_stations.get_station_metadata(settings.drop_off)
@@ -136,14 +144,12 @@ class sparkpowder_station(base_task):
         super().__init__()
         self.name = name
         self.teleporter_name = teleporter_name
-
-        # "delay" is the re-queue interval (mirrors pego behavior).
-        # "initial_delay" is an optional one-time startup offset (defaults to 0 so it queues immediately).
+        # Re-queue delay (seconds) per station (from json_files/sparkpowder.json)
         self.delay = float(delay or 0)
+        # Optional per-station initial delay before first run
         self.initial_delay = float(initial_delay or 0)
-
         self.deposit_height = deposit_height
-        self.one_shot = False
+        self.one_shot = False  # task_manager checks this to avoid re-queueing
 
     def execute(self):
         player_state.check_state()
@@ -158,11 +164,11 @@ class sparkpowder_station(base_task):
         teleporter.teleport_not_default(meta)
         time.sleep(0.5 * getattr(settings, "lag_offset", 1.0))
 
-        # Ensure pitch starts neutral
+        # Ensure pitch starts neutral before we do our look-up/down offsets
         utils.pitch_zero()
         time.sleep(0.15 * settings.lag_offset)
 
-        # Stations face the common yaw; Megalab.
+        # Stations face the common yaw; Megalab/Dedis are behind.
         utils.turn_right(getattr(settings, "sparkpowder_turn_degrees", 180))
         time.sleep(0.25 * settings.lag_offset)
 
@@ -195,10 +201,10 @@ class sparkpowder_station(base_task):
         utils.turn_down(getattr(settings, "sparkpowder_look_degrees", 45))
         time.sleep(0.25 * settings.lag_offset)
 
-        # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned
+         # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned
         utils.pitch_zero()
         utils.set_yaw(meta.yaw)
-
+        
         # Deposit to the station's dedicated storage boxes
         deposit.dedi_deposit_custom_1(self.deposit_height)
         time.sleep(0.25 * settings.lag_offset)
@@ -212,9 +218,9 @@ class sparkpowder_station(base_task):
         return 3
 
     def get_requeue_delay(self):
-        # Mirror pego: re-queue interval comes from this station's delay (json_files/sparkpowder.json).
-        if self.delay and self.delay > 0:
-            return self.delay
+        # Prefer the per-station delay from sparkpowder.json; fall back to a global default.
+        if getattr(self, "delay", 0):
+            return float(self.delay)
         return getattr(settings, "sparkpowder_requeue_delay", 1800)
 
 
@@ -224,14 +230,12 @@ class gunpowder_station(base_task):
         super().__init__()
         self.name = name
         self.teleporter_name = teleporter_name
-
-        # "delay" is the re-queue interval (mirrors pego behavior).
-        # "initial_delay" is an optional one-time startup offset (defaults to 0 so it queues immediately).
+        # Re-queue delay (seconds) per station (from json_files/gunpowder.json)
         self.delay = float(delay or 0)
+        # Optional per-station initial delay before first run
         self.initial_delay = float(initial_delay or 0)
-
         self.deposit_height = deposit_height
-        self.one_shot = False
+        self.one_shot = False  # task_manager checks this to avoid re-queueing
 
     def execute(self):
         player_state.check_state()
@@ -251,7 +255,7 @@ class gunpowder_station(base_task):
         time.sleep(0.15 * settings.lag_offset)
 
         # Look down to face the Megalab
-        look_deg = abs(float(getattr(settings, "gunpowder_look_degrees", 25.0)))
+        look_deg = float(getattr(settings, "gunpowder_look_degrees", 25.0) or 25.0)
         utils.turn_down(look_deg)
         time.sleep(0.25 * settings.lag_offset)
 
@@ -284,10 +288,10 @@ class gunpowder_station(base_task):
         utils.pitch_zero()
         utils.set_yaw(meta.yaw)
 
-        turn_deg_raw = getattr(settings, "gunpowder_turn_degrees", 180.0)
-        turn_deg = float(turn_deg_raw) if turn_deg_raw is not None else 0.0
+        
+        turn_deg = float(getattr(settings, "gunpowder_turn_degrees", 180.0) or 180.0)
         if abs(turn_deg) > 0.1:
-            utils.turn_right(abs(turn_deg))
+            utils.turn_right(turn_deg)
             time.sleep(0.25 * settings.lag_offset)
 
         # Deposit to the station's dedicated storage boxes
@@ -303,14 +307,11 @@ class gunpowder_station(base_task):
         return 3
 
     def get_requeue_delay(self):
-        # Mirror pego: re-queue interval comes from this station's delay (json_files/gunpowder.json).
-        if self.delay and self.delay > 0:
-            return self.delay
-        return getattr(settings, "gunpowder_requeue_delay", 1800)
-
-
+        # Prefer the per-station delay from gunpowder.json; fall back to a global default.
+        if getattr(self, "delay", 0):
+            return float(self.delay)
+        return getattr(settings, "gunpowder_requeue_delay", 3000)
 class render_station(base_task):
-
     def __init__(self):
         super().__init__()
         self.name = settings.bed_spawn
@@ -343,6 +344,10 @@ class snail_pheonix(base_task):
         self.depo_tp = depo
 
     def execute(self):
+        if not getattr(settings, "gacha_enabled", True):
+            logs.logger.info("[Gacha:Collect] Disabled via settings.gacha_enabled; skipping.")
+            return
+
         gacha_metadata = custom_stations.get_station_metadata(self.teleporter_name)
         gacha_metadata.side = self.direction
 
