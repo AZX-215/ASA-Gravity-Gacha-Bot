@@ -22,11 +22,14 @@ crafting: bool = True # Toggle off for standalone gachabot.
 seeds_230: bool = False
 external_berry: bool = False
 sparkpowder_enabled: bool = False # Sparkpowder stations are configured in json_files/sparkpowder.json
+gunpowder_enabled: bool = False # Gunpowder stations are configured in json_files/gunpowder.json
 
 sparkpowder_look_degrees: float = 45.0 # Sparkpowder task tuning (safe defaults; adjust after in-game testing)
 sparkpowder_turn_degrees: float = 180.0
 sparkpowder_craft_seconds: float = 2
 sparkpowder_requeue_delay: int = 1800  # fallback if sparkpowder.json delay is missing/0
+
+gunpowder_requeue_delay: int = 1800 # fallback if gunpowder.json delay is missing/0
 
 # YOUR discord channel IDs and bot API key. To find channel IDs enable developer mode in discord and right click the channel to copy ID.
 log_channel_gacha: int = 111111111111111
