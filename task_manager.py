@@ -1,6 +1,7 @@
 import heapq
 import time
 import json
+import re
 from pathlib import Path
 import settings
 import bot.stations as stations
@@ -14,7 +15,7 @@ started = False
 
 class SingletonMeta(type):
     _instances = {}
-    _lock = Lock()
+    _lock: Lock = Lock()
 
     def __call__(cls, *args, **kwargs):
         with cls._lock:
@@ -26,6 +27,7 @@ class SingletonMeta(type):
 
 class priority_queue_exc:
     """Execution-time ordered queue (soonest first)."""
+
     def __init__(self):
         self.queue = []
 
@@ -48,6 +50,7 @@ class priority_queue_exc:
 
 class priority_queue_prio:
     """Priority ordered queue (lowest number = highest priority)."""
+
     def __init__(self):
         self.queue = []
 
@@ -73,6 +76,7 @@ class watchdog_render_task:
     - Runs render_station.execute() at high priority so it can't be starved.
     - Optionally sets stations.berry_station=True AFTER render, so the next gacha run re-berries.
     """
+
     def __init__(self, reason="timeout", request_berry=False):
         self.name = f"watchdog_render:{reason}"
         self.reason = reason
@@ -83,12 +87,12 @@ class watchdog_render_task:
     def execute(self):
         stations.render_station().execute()
 
-        # IMPORTANT: set berry flag AFTER render, because render_station.execute() may also touch berry_station.
+        # IMPORTANT: set berry flag AFTER render
         if self.request_berry:
             stations.berry_station = True
 
     def get_priority_level(self):
-        return 1  # higher than pegos/gachas so it can pre-empt
+        return 1
 
     def get_requeue_delay(self):
         return 0
@@ -110,20 +114,15 @@ class task_scheduler(metaclass=SingletonMeta):
             self._defer_completion_ratio = 0.90  # if we're ~done, wait for cycle end instead of interrupting
             self._maintenance_counter = 0
 
-            # cycle definition: "complete" means every pego + every gacha has executed at least once
+            # cycle definition: "complete" means every pego + every gacha/collect has executed at least once
             self._pego_all = set()
             self._gacha_all = set()
             self._pego_done = set()
             self._gacha_done = set()
 
-            # optional: tracked but not used for cycle completion
-            self._sparkpowder_task_defs = []
-            self._sparkpowder_enqueued = False
+            # tracked but not used for cycle completion
             self._sparkpowder_all = set()
             self._sparkpowder_done = set()
-
-            self._gunpowder_task_defs = []
-            self._gunpowder_enqueued = False
             self._gunpowder_all = set()
             self._gunpowder_done = set()
 
@@ -143,14 +142,14 @@ class task_scheduler(metaclass=SingletonMeta):
 
         # Crafting tasks
         if isinstance(task, stations.sparkpowder_station):
-            return bool(getattr(settings, "crafting", True) and getattr(settings, "sparkpowder_enabled", False))
+            return bool(getattr(settings, "crafting", False) and getattr(settings, "sparkpowder_enabled", False))
 
         if isinstance(task, stations.gunpowder_station):
-            return bool(getattr(settings, "crafting", True) and getattr(settings, "gunpowder_enabled", False))
+            return bool(getattr(settings, "crafting", False) and getattr(settings, "gunpowder_enabled", False))
 
         return True
 
-    def _discard_from_cycle_sets(self, task):
+    def _discard_from_tracking(self, task):
         """If a task is disabled mid-run, remove it from tracking sets so it can't affect cycle logic."""
         try:
             if isinstance(task, stations.pego_station):
@@ -169,7 +168,7 @@ class task_scheduler(metaclass=SingletonMeta):
             pass
 
     def add_task(self, task):
-        # First run: allow a task-specific initial delay (used by one-shot crafting tasks)
+        # First run: allow a task-specific initial delay
         if not getattr(task, 'has_run_before', False):
             next_execution_time = time.time() + float(getattr(task, 'initial_delay', 0) or 0)
         else:
@@ -191,7 +190,7 @@ class task_scheduler(metaclass=SingletonMeta):
             pass
 
         self.waiting_queue.add(task, task.get_priority_level(), next_execution_time)
-        # logs.logger.debug(f"Added task {getattr(task, 'name', '<unnamed>')} to waiting queue")
+        # logs.logger.info(f"Added task {task.name} to waiting queue")
 
     def run(self):
         while True:
@@ -219,9 +218,10 @@ class task_scheduler(metaclass=SingletonMeta):
         if not task_tuple:
             return
 
-        # NOTE: active_queue stores (priority, exec_time, idx, task)
+        # active_queue stores: (priority, exec_time, idx, task)
         priority, exec_time, _, task = task_tuple
 
+        # Not ready yet (should be rare)
         if exec_time > current_time:
             self.active_queue.add(task, priority, exec_time)
             return
@@ -229,7 +229,7 @@ class task_scheduler(metaclass=SingletonMeta):
         # Toggle gate: skip tasks that are disabled (and do not re-queue them)
         if not self._is_task_enabled(task):
             logs.logger.info(f"Skipping disabled task: {getattr(task, 'name', '<unnamed>')}")
-            self._discard_from_cycle_sets(task)
+            self._discard_from_tracking(task)
             self.prev_task_name = getattr(task, 'name', '')
             return
 
@@ -243,21 +243,34 @@ class task_scheduler(metaclass=SingletonMeta):
 
         now = time.time()
 
+        # If a watchdog task just ran, reset tracking and DO NOT run cycle logic for this execution.
+        if isinstance(task, watchdog_render_task):
+            self.last_render_exec = now
+            self._pego_done.clear()
+            self._gacha_done.clear()
+            self._sparkpowder_done.clear()
+            self._gunpowder_done.clear()
+            self._maintenance_enqueued = False
+            self._maintenance_due_deferred = False
+
+            self.prev_task_name = getattr(task, 'name', '')
+            return
+
         # -------- watchdog + cycle tracking --------
         # Update last render time
-        if isinstance(task, (stations.render_station, watchdog_render_task)):
+        if isinstance(task, stations.render_station):
             self.last_render_exec = now
 
-        # Mark progress toward a full cycle
+        # Mark progress toward a full cycle (pego + gacha/collect only)
         if isinstance(task, stations.pego_station):
             self._pego_done.add(task.name)
         elif isinstance(task, (stations.gacha_station, stations.snail_pheonix)):
             self._gacha_done.add(task.name)
 
-        # (optional) mark crafting completion
+        # Track crafting completion (not used for cycle completion)
         if isinstance(task, stations.sparkpowder_station):
             self._sparkpowder_done.add(task.name)
-        if isinstance(task, stations.gunpowder_station):
+        elif isinstance(task, stations.gunpowder_station):
             self._gunpowder_done.add(task.name)
 
         total = len(self._pego_all) + len(self._gacha_all)
@@ -272,14 +285,20 @@ class task_scheduler(metaclass=SingletonMeta):
             self._maintenance_counter += 1
             self._maintenance_enqueued = True
             self._maintenance_due_deferred = False
-            self.add_task(watchdog_render_task(reason=f"deferred_cycle_complete#{self._maintenance_counter}", request_berry=True))
+            self.add_task(watchdog_render_task(
+                reason=f"deferred_cycle_complete#{self._maintenance_counter}",
+                request_berry=True
+            ))
 
         # Otherwise, if a cycle completes, perform maintenance at end of the cycle (once).
         elif cycle_complete and not self._maintenance_enqueued:
             self._maintenance_counter += 1
             self._maintenance_enqueued = True
             self._maintenance_due_deferred = False
-            self.add_task(watchdog_render_task(reason=f"cycle_complete#{self._maintenance_counter}", request_berry=True))
+            self.add_task(watchdog_render_task(
+                reason=f"cycle_complete#{self._maintenance_counter}",
+                request_berry=True
+            ))
 
         # If render hasn't happened in too long, enqueue a watchdog render.
         # If we're almost done with the current cycle, defer until cycle completes to avoid wasting time/berries.
@@ -295,36 +314,39 @@ class task_scheduler(metaclass=SingletonMeta):
                     self._maintenance_counter += 1
                     self._maintenance_enqueued = True
                     self._maintenance_due_deferred = False
-                    self.add_task(watchdog_render_task(reason=f"timeout#{self._maintenance_counter}", request_berry=False))
+                    self.add_task(watchdog_render_task(
+                        reason=f"timeout#{self._maintenance_counter}",
+                        request_berry=False
+                    ))
 
-        # When maintenance runs, reset cycle tracking so the next cycle starts clean
-        if isinstance(task, watchdog_render_task):
-            self._pego_done.clear()
-            self._gacha_done.clear()
-            self._maintenance_enqueued = False
-            self._maintenance_due_deferred = False
-            self._sparkpowder_enqueued = False
-            self._sparkpowder_done.clear()
-            self._gunpowder_enqueued = False
-            self._gunpowder_done.clear()
-
-        # ------------------------------------------
         self.prev_task_name = getattr(task, 'name', '')
 
+        # Re-queue unless one-shot
         if getattr(task, 'name', '') != "pause" and not getattr(task, 'one_shot', False):
             self.move_to_waiting_queue(task)
-        elif getattr(task, 'one_shot', False):
-            # one-shot task complete, not re-queuing
-            pass
-        else:
-            # pause task skipping adding back
-            pass
 
     def move_to_waiting_queue(self, task):
-        logs.logger.debug(f"adding {task.name} to waiting queue")
-        next_execution_time = time.time() + float(task.get_requeue_delay() or 0)
+        # For sparkpowder/gunpowder, prefer per-station delay from JSON (task.delay)
+        delay = float(task.get_requeue_delay() or 0)
+        if isinstance(task, (stations.sparkpowder_station, stations.gunpowder_station)):
+            try:
+                delay = float(getattr(task, "delay", delay) or delay)
+            except Exception:
+                pass
+
+        next_execution_time = time.time() + delay
         priority_level = task.get_priority_level()
         self.waiting_queue.add(task, priority_level, next_execution_time)
+
+
+def _loads_relaxed_json(text):
+    # Strip UTF-8 BOM if present
+    text = text.lstrip('\ufeff').strip()
+    if not text:
+        return []
+    # Remove trailing commas before } or ]
+    text = re.sub(r',\s*([}\]])', r'\1', text)
+    return json.loads(text)
 
 
 def load_resolution_data(file_path):
@@ -334,12 +356,15 @@ def load_resolution_data(file_path):
 
     try:
         with open(resolved, 'r', encoding='utf-8') as file:
-            data = file.read().strip()
-            if not data:
-                logs.logger.warning(f"warning: {resolved} is empty no tasks added.")
-                return []
-            return json.loads(data)
-    except (json.JSONDecodeError, FileNotFoundError) as e:
+            raw = file.read()
+        return _loads_relaxed_json(raw)
+    except FileNotFoundError as e:
+        logs.logger.error(f"error loading JSON (not found) from {resolved}: {e}")
+        return []
+    except json.JSONDecodeError as e:
+        logs.logger.error(f"error loading JSON (decode) from {resolved}: {e}")
+        return []
+    except Exception as e:
         logs.logger.error(f"error loading JSON from {resolved}: {e}")
         return []
 
@@ -378,7 +403,7 @@ def main():
         logs.logger.info("Gacha tasks disabled (settings.gacha_enabled=False)")
 
     # ---------------- Crafting: Sparkpowder ----------------
-    if getattr(settings, "crafting", True) and getattr(settings, "sparkpowder_enabled", False):
+    if getattr(settings, "crafting", False) and getattr(settings, "sparkpowder_enabled", False):
         sparkpowder_data = load_resolution_data("json_files/sparkpowder.json")
         for entry in sparkpowder_data:
             sp_name = entry.get("name") or entry.get("station_name") or entry.get("teleporter")
@@ -386,16 +411,19 @@ def main():
             sp_delay = entry.get("delay", 0)
             sp_initial = entry.get("initial_delay", 0)  # optional one-time startup offset
             sp_height = entry.get("deposit_height", 3)
+
             if not sp_name or not sp_tp:
                 logs.logger.warning(f"[Sparkpowder] Invalid entry in sparkpowder.json: {entry}")
                 continue
-            scheduler.add_task(stations.sparkpowder_station(sp_name, sp_tp, sp_delay, sp_height, sp_initial))
-    else:
-        # Avoid noisy logs for common standalone runs
-        pass
+
+            t = stations.sparkpowder_station(sp_name, sp_tp, sp_delay, sp_height)
+            # Ensure it queues immediately on startup unless explicitly overridden
+            t.initial_delay = float(sp_initial or 0)
+            t.delay = float(sp_delay or 0)
+            scheduler.add_task(t)
 
     # ---------------- Crafting: Gunpowder ----------------
-    if getattr(settings, "crafting", True) and getattr(settings, "gunpowder_enabled", False):
+    if getattr(settings, "crafting", False) and getattr(settings, "gunpowder_enabled", False):
         gunpowder_data = load_resolution_data("json_files/gunpowder.json")
         for entry in gunpowder_data:
             gp_name = entry.get("name") or entry.get("station_name") or entry.get("teleporter")
@@ -403,12 +431,15 @@ def main():
             gp_delay = entry.get("delay", 0)
             gp_initial = entry.get("initial_delay", 0)  # optional one-time startup offset
             gp_height = entry.get("deposit_height", 3)
+
             if not gp_name or not gp_tp:
                 logs.logger.warning(f"[Gunpowder] Invalid entry in gunpowder.json: {entry}")
                 continue
-            scheduler.add_task(stations.gunpowder_station(gp_name, gp_tp, gp_delay, gp_height, gp_initial))
-    else:
-        pass
+
+            t = stations.gunpowder_station(gp_name, gp_tp, gp_delay, gp_height)
+            t.initial_delay = float(gp_initial or 0)
+            t.delay = float(gp_delay or 0)
+            scheduler.add_task(t)
 
     # Render should always be active (no toggle); bot logic depends on it.
     scheduler.add_task(stations.render_station())
