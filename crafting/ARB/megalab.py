@@ -61,7 +61,7 @@ def transfer_filtered_to_player(search_term: str = "spark") -> bool:
     return True
 
 
-def craft_from_crafting_tab(search_term: str = "spark", craft_seconds: float = 2.5) -> bool:
+def craft_from_crafting_tab(search_term: str = "spark", craft_seconds: float = 2.0) -> bool:
     """
     From the Megalab CRAFTING tab:
     - Types search_term in the structure search bar
@@ -87,7 +87,7 @@ def craft_from_crafting_tab(search_term: str = "spark", craft_seconds: float = 2
     return True
 
 
-def run_sparkpowder_cycle(craft_seconds: float = 2.5) -> bool:
+def run_sparkpowder_cycle(craft_seconds: float = 2.0) -> bool:
     """
     Convenience helper for your SparkPowder task:
     1) Transfer existing sparkpowder out of the Megalab (filtered)
@@ -104,7 +104,7 @@ def run_sparkpowder_cycle(craft_seconds: float = 2.5) -> bool:
     return True
 
 
-def run_gunpowder_cycle(craft_seconds: float = 2.5) -> bool:
+def run_gunpowder_cycle(craft_seconds: float = 2.0) -> bool:
     """Same flow as run_sparkpowder_cycle, but filtered to Gunpowder."""
     if not is_open_megalab():
         logs.logger.error("Expected Megalab inventory, but Megalab template was not detected.")
