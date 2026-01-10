@@ -28,14 +28,15 @@ pego_enabled: bool = True
 gacha_enabled: bool = True
 render_enabled: bool = True
 
+#sparkpowder defaults
 sparkpowder_look_degrees: float = 45.0 # Sparkpowder task tuning (safe defaults; adjust after in-game testing)
 sparkpowder_turn_degrees: float = 180.0
 sparkpowder_craft_seconds: float = 2
 sparkpowder_requeue_delay: int = 1800  # fallback if sparkpowder.json delay is missing/0
 
-
+# gunpowder defaults
 gunpowder_look_degrees: float = -25.0 # Gunpowder task tuning (safe defaults; adjust after in-game testing)
-gunpowder_turn_degrees: float = 0.0
+gunpowder_turn_degrees: float = 180.0
 gunpowder_craft_seconds: float = 2
 gunpowder_requeue_delay: int = 1800 # fallback if gunpowder.json delay is missing/0
 
