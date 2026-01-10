@@ -67,6 +67,9 @@ def dedi_deposit(height):
         utils.turn_right(10)
         time.sleep(0.1*settings.lag_offset)
 
+    else:
+        logs.logger.warning(f"dedi_deposit: unsupported height={height}; no action taken") #customize here if else.
+
 def dedi_deposit_alt(height):
     if height == 3:
         utils.turn_up(15)
@@ -110,8 +113,11 @@ def dedi_deposit_alt(height):
         utils.turn_left(90)
         time.sleep(0.4*settings.lag_offset)
 
+    else:
+        logs.logger.warning(f"dedi_deposit_alt: unsupported height={height}; no action taken") #customize here if else.
 
-def dedi_deposit_custom(height):
+
+def dedi_deposit_custom_1(height):
     if height == 3:
         utils.turn_up(15)
         time.sleep(0.3*settings.lag_offset)
@@ -129,7 +135,28 @@ def dedi_deposit_custom(height):
         time.sleep(0.3*settings.lag_offset)
 
     else:
-        logs.logger.warning(f"dedi_deposit_custom: unsupported height={height}; no action taken")
+        logs.logger.warning(f"dedi_deposit_custom_1: unsupported height={height}; no action taken") #customize here if else.
+
+def dedi_deposit_custom_2(height):
+    if height == 3:
+        utils.turn_up(15)
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Use")
+        time.sleep(0.3*settings.lag_offset)
+        utils.turn_down(30)
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Use")
+        time.sleep(0.3*settings.lag_offset)
+        utils.turn_down(15)
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Use")
+        time.sleep(0.3*settings.lag_offset)
+        utils.turn_up(30)
+        time.sleep(0.3*settings.lag_offset)
+
+    else:
+        logs.logger.warning(f"dedi_deposit_custom_2: unsupported height={height}; no action taken") #customize here if else.
+
 
 def vault_deposit(items, metadata):
     side = metadata.side
