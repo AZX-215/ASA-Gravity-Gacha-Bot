@@ -177,7 +177,7 @@ class sparkpowder_station(base_task):
             inventory.open()
 
         if template.template_await_true(template.check_template, 1, "megalab", 0.7):
-            megalab_crafting.run_sparkpowder_cycle(craft_seconds=getattr(settings, "sparkpowder_craft_seconds", 2.5))
+            megalab_crafting.run_sparkpowder_cycle(craft_seconds=getattr(settings, "sparkpowder_craft_seconds", 2.0))
         else:
             logs.logger.error("[Sparkpowder] Unable to open Megalab inventory; skipping craft/deposit for this station")
             inventory.close()
@@ -197,7 +197,7 @@ class sparkpowder_station(base_task):
         utils.set_yaw(meta.yaw)
         
         # Deposit to the station's dedicated storage boxes
-        deposit.dedi_deposit_custom(self.deposit_height)
+        deposit.dedi_deposit_custom_1(self.deposit_height)
         time.sleep(0.25 * settings.lag_offset)
 
         # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned
@@ -242,12 +242,6 @@ class gunpowder_station(base_task):
         utils.pitch_zero()
         time.sleep(0.15 * settings.lag_offset)
 
-        # Optional additional turn (default 0). Prefer per-station yaw in stations.json.
-        turn_deg = float(getattr(settings, "gunpowder_turn_degrees", 0.0) or 0.0)
-        if abs(turn_deg) > 0.1:
-            utils.turn_right(turn_deg)
-            time.sleep(0.25 * settings.lag_offset)
-
         # Look down to face the Megalab
         look_deg = float(getattr(settings, "gunpowder_look_degrees", 25.0) or 25.0)
         utils.turn_down(look_deg)
@@ -263,7 +257,7 @@ class gunpowder_station(base_task):
             inventory.open()
 
         if template.template_await_true(template.check_template, 1, "megalab", 0.7):
-            megalab_crafting.run_gunpowder_cycle(craft_seconds=getattr(settings, "gunpowder_craft_seconds", 2.5))
+            megalab_crafting.run_gunpowder_cycle(craft_seconds=getattr(settings, "gunpowder_craft_seconds", 2.0))
         else:
             logs.logger.error("[Gunpowder] Unable to open Megalab inventory; skipping craft/deposit for this station")
             inventory.close()
@@ -274,16 +268,22 @@ class gunpowder_station(base_task):
         inventory.close()
         time.sleep(0.25 * settings.lag_offset)
 
-        # Return pitch back to neutral (we looked up earlier)
-        utils.turn_down(look_deg)
+        # Return pitch back to neutral (we looked down earlier)
+        utils.turn_up(look_deg)
         time.sleep(0.25 * settings.lag_offset)
 
         # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned
         utils.pitch_zero()
         utils.set_yaw(meta.yaw)
 
+        
+        turn_deg = float(getattr(settings, "gunpowder_turn_degrees", 180.0) or 180.0)
+        if abs(turn_deg) > 0.1:
+            utils.turn_right(turn_deg)
+            time.sleep(0.25 * settings.lag_offset)
+
         # Deposit to the station's dedicated storage boxes
-        deposit.dedi_deposit_custom(self.deposit_height)
+        deposit.dedi_deposit_custom_2(self.deposit_height)
         time.sleep(0.25 * settings.lag_offset)
 
         # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned
@@ -296,7 +296,7 @@ class gunpowder_station(base_task):
 
     def get_requeue_delay(self):
         # One-shot tasks are not re-queued, but keep a sensible default for consistency.
-        return getattr(settings, "gunpowder_requeue_delay", 1800)
+        return getattr(settings, "gunpowder_requeue_delay", 3000)
 class render_station(base_task):
     def __init__(self):
         super().__init__()
