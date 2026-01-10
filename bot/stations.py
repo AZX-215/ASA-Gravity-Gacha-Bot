@@ -248,9 +248,9 @@ class gunpowder_station(base_task):
             utils.turn_right(turn_deg)
             time.sleep(0.25 * settings.lag_offset)
 
-        # Look up to face the Megalab
-        look_deg = float(getattr(settings, "gunpowder_look_degrees", 45.0) or 45.0)
-        utils.turn_up(look_deg)
+        # Look down to face the Megalab
+        look_deg = float(getattr(settings, "gunpowder_look_degrees", 25.0) or 25.0)
+        utils.turn_down(look_deg)
         time.sleep(0.25 * settings.lag_offset)
 
         # Open Megalab inventory, transfer existing gunpowder, then craft more
