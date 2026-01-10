@@ -132,15 +132,18 @@ class pego_station(base_task):
     
 class sparkpowder_station(base_task):
 
-    def __init__(self, name, teleporter_name, delay=0, deposit_height=3):
+    def __init__(self, name, teleporter_name, delay=0, deposit_height=3, initial_delay=0):
         super().__init__()
         self.name = name
         self.teleporter_name = teleporter_name
-        # Per-station initial delay (read from json_files/sparkpowder.json)
-        self.initial_delay = delay
-        self.delay = delay
+
+        # "delay" is the re-queue interval (mirrors pego behavior).
+        # "initial_delay" is an optional one-time startup offset (defaults to 0 so it queues immediately).
+        self.delay = float(delay or 0)
+        self.initial_delay = float(initial_delay or 0)
+
         self.deposit_height = deposit_height
-        self.one_shot = False  # task_manager checks this to avoid re-queueing
+        self.one_shot = False
 
     def execute(self):
         player_state.check_state()
@@ -155,11 +158,11 @@ class sparkpowder_station(base_task):
         teleporter.teleport_not_default(meta)
         time.sleep(0.5 * getattr(settings, "lag_offset", 1.0))
 
-        # Ensure pitch starts neutral before we do our look-up/down offsets
+        # Ensure pitch starts neutral
         utils.pitch_zero()
         time.sleep(0.15 * settings.lag_offset)
 
-        # Stations face the common yaw; Megalab/Dedis are behind.
+        # Stations face the common yaw; Megalab.
         utils.turn_right(getattr(settings, "sparkpowder_turn_degrees", 180))
         time.sleep(0.25 * settings.lag_offset)
 
@@ -192,10 +195,10 @@ class sparkpowder_station(base_task):
         utils.turn_down(getattr(settings, "sparkpowder_look_degrees", 45))
         time.sleep(0.25 * settings.lag_offset)
 
-         # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned
+        # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned
         utils.pitch_zero()
         utils.set_yaw(meta.yaw)
-        
+
         # Deposit to the station's dedicated storage boxes
         deposit.dedi_deposit_custom_1(self.deposit_height)
         time.sleep(0.25 * settings.lag_offset)
@@ -209,21 +212,26 @@ class sparkpowder_station(base_task):
         return 3
 
     def get_requeue_delay(self):
-        # One-shot tasks are not re-queued, but keep a sensible default for consistency.
+        # Mirror pego: re-queue interval comes from this station's delay (json_files/sparkpowder.json).
+        if self.delay and self.delay > 0:
+            return self.delay
         return getattr(settings, "sparkpowder_requeue_delay", 1800)
 
 
 class gunpowder_station(base_task):
 
-    def __init__(self, name, teleporter_name, delay=0, deposit_height=3):
+    def __init__(self, name, teleporter_name, delay=0, deposit_height=3, initial_delay=0):
         super().__init__()
         self.name = name
         self.teleporter_name = teleporter_name
-        # Per-station initial delay (read from json_files/gunpowder.json)
-        self.initial_delay = delay
-        self.delay = delay
+
+        # "delay" is the re-queue interval (mirrors pego behavior).
+        # "initial_delay" is an optional one-time startup offset (defaults to 0 so it queues immediately).
+        self.delay = float(delay or 0)
+        self.initial_delay = float(initial_delay or 0)
+
         self.deposit_height = deposit_height
-        self.one_shot = False  # task_manager checks this to avoid re-queueing
+        self.one_shot = False
 
     def execute(self):
         player_state.check_state()
@@ -243,7 +251,7 @@ class gunpowder_station(base_task):
         time.sleep(0.15 * settings.lag_offset)
 
         # Look down to face the Megalab
-        look_deg = float(getattr(settings, "gunpowder_look_degrees", 25.0) or 25.0)
+        look_deg = abs(float(getattr(settings, "gunpowder_look_degrees", 25.0)))
         utils.turn_down(look_deg)
         time.sleep(0.25 * settings.lag_offset)
 
@@ -276,10 +284,10 @@ class gunpowder_station(base_task):
         utils.pitch_zero()
         utils.set_yaw(meta.yaw)
 
-        
-        turn_deg = float(getattr(settings, "gunpowder_turn_degrees", 180.0) or 180.0)
+        turn_deg_raw = getattr(settings, "gunpowder_turn_degrees", 180.0)
+        turn_deg = float(turn_deg_raw) if turn_deg_raw is not None else 0.0
         if abs(turn_deg) > 0.1:
-            utils.turn_right(turn_deg)
+            utils.turn_right(abs(turn_deg))
             time.sleep(0.25 * settings.lag_offset)
 
         # Deposit to the station's dedicated storage boxes
@@ -295,9 +303,14 @@ class gunpowder_station(base_task):
         return 3
 
     def get_requeue_delay(self):
-        # One-shot tasks are not re-queued, but keep a sensible default for consistency.
-        return getattr(settings, "gunpowder_requeue_delay", 3000)
+        # Mirror pego: re-queue interval comes from this station's delay (json_files/gunpowder.json).
+        if self.delay and self.delay > 0:
+            return self.delay
+        return getattr(settings, "gunpowder_requeue_delay", 1800)
+
+
 class render_station(base_task):
+
     def __init__(self):
         super().__init__()
         self.name = settings.bed_spawn
