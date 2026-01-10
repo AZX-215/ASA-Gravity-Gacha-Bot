@@ -1,1 +1,10 @@
-[]
+[
+  {"name": "SN MEGALAB #001.", "teleporter": "GACHA-GUN #001", "delay": 1200, "deposit_height": 3},
+  {"name": "SN MEGALAB #002.", "teleporter": "GACHA-GUN #002", "delay": 1200, "deposit_height": 3},
+  {"name": "SN MEGALAB #003.", "teleporter": "GACHA-GUN #002", "delay": 1200, "deposit_height": 3},
+  {"name": "SN MEGALAB #004.", "teleporter": "GACHA-GUN #002", "delay": 1200, "deposit_height": 3},
+  {"name": "SN MEGALAB #005.", "teleporter": "GACHA-GUN #002", "delay": 1200, "deposit_height": 3},
+  {"name": "SN MEGALAB #006.", "teleporter": "GACHA-GUN #002", "delay": 1200, "deposit_height": 3},
+  {"name": "SN MEGALAB #007.", "teleporter": "GACHA-GUN #002", "delay": 1200, "deposit_height": 3},
+  {"name": "SN MEGALAB #008.", "teleporter": "GACHA-GUN #002", "delay": 1200, "deposit_height": 3},
+]
