@@ -29,6 +29,10 @@ sparkpowder_turn_degrees: float = 180.0
 sparkpowder_craft_seconds: float = 2
 sparkpowder_requeue_delay: int = 1800  # fallback if sparkpowder.json delay is missing/0
 
+
+gunpowder_look_degrees: float = -35.0 # Gunpowder task tuning (safe defaults; adjust after in-game testing)
+gunpowder_turn_degrees: float = 0.0
+gunpowder_craft_seconds: float = 2
 gunpowder_requeue_delay: int = 1800 # fallback if gunpowder.json delay is missing/0
 
 # YOUR discord channel IDs and bot API key. To find channel IDs enable developer mode in discord and right click the channel to copy ID.
