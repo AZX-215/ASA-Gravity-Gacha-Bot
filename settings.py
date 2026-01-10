@@ -16,6 +16,10 @@ height_grind: int = 3
 command_prefix: str = "%"
 singleplayer: bool = False
 server_number: str = 0
+pego_enabled: bool = True
+gacha_enabled: bool = True
+render_enabled: bool = True
+
 crafting: bool = False
 seeds_230: bool = False
 
@@ -26,6 +30,7 @@ sparkpowder_enabled: bool = False
 sparkpowder_look_degrees: float = 45.0
 sparkpowder_turn_degrees: float = 180.0
 sparkpowder_craft_seconds: float = 2
+sparkpowder_requeue_delay: int = 1800  # fallback if sparkpowder.json delay is missing/0
 
 # YOUR discord channel IDs and bot API key. To find channel IDs enable developer mode in discord and right click the channel to copy ID.
 log_channel_gacha: int = 111111111111111

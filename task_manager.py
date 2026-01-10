@@ -268,31 +268,38 @@ def main():
     scheduler = task_scheduler()
     
     pego_data = load_resolution_data("json_files/pego.json")
-    for entry_pego in pego_data:
-        name = entry_pego["name"]
-        teleporter = entry_pego["teleporter"]
-        delay = entry_pego["delay"]
-        task = stations.pego_station(name,teleporter,delay)
-        scheduler.add_task(task)
+    if getattr(settings, "pego_enabled", True):
+        for entry_pego in pego_data:
+            name = entry_pego["name"]
+            teleporter = entry_pego["teleporter"]
+            delay = entry_pego["delay"]
+            task = stations.pego_station(name,teleporter,delay)
+            scheduler.add_task(task)
+    else:
+        logs.logger.info("Pego tasks disabled via settings.pego_enabled")
 
     gacha_data = load_resolution_data("json_files/gacha.json")
-    for entry_gacha in gacha_data:
-        name = entry_gacha["name"]
-        teleporter = entry_gacha["teleporter"]
-        direction = entry_gacha["side"]
-        resource = entry_gacha["resource_type"]
-        if resource == "collect":
-            depo = entry_gacha["depo_tp"]
-            task = stations.snail_pheonix(name,teleporter,direction,depo)
-        else:
-            task = stations.gacha_station(name, teleporter, direction)
-        scheduler.add_task(task)
-        
+    if getattr(settings, "gacha_enabled", True):
+        for entry_gacha in gacha_data:
+            name = entry_gacha["name"]
+            teleporter = entry_gacha["teleporter"]
+            direction = entry_gacha["side"]
+            resource = entry_gacha["resource_type"]
+            if resource == "collect":
+                depo = entry_gacha["depo_tp"]
+                task = stations.snail_pheonix(name,teleporter,direction,depo)
+            else:
+                task = stations.gacha_station(name, teleporter, direction)
+            scheduler.add_task(task)
+    else:
+        logs.logger.info("Gacha tasks disabled via settings.gacha_enabled")
 
     # Sparkpowder station definitions (enqueued later after all pego tasks have run once in a cycle)
     sparkpowder_data = load_resolution_data("json_files/sparkpowder.json")
-
-    scheduler.add_task(stations.render_station())
+    if getattr(settings, "render_enabled", True):
+        scheduler.add_task(stations.render_station())
+    else:
+        logs.logger.info("Render task disabled via settings.render_enabled")
     logs.logger.info("scheduler now running")
     started = True
     scheduler.run()
