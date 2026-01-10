@@ -26,7 +26,6 @@ gunpowder_enabled: bool = False # Gunpowder stations are configured in json_file
 # Task toggles
 pego_enabled: bool = True
 gacha_enabled: bool = True
-render_enabled: bool = True
 
 #sparkpowder defaults
 sparkpowder_look_degrees: float = 45.0 # Sparkpowder task tuning (safe defaults; adjust after in-game testing)
