@@ -8,6 +8,7 @@ from ASA.strucutres import bed , teleporter , inventory
 from ASA.player import buffs , console , player_state , tribelog , player_inventory
 from ASA.stations import custom_stations
 from bot import config , deposit , gacha , iguanadon , pego 
+from crafting.ARB import megalab as megalab_crafting
 from abc import ABC ,abstractmethod
 global berry_station
 global last_berry
@@ -41,6 +42,10 @@ class gacha_station(base_task):
 
     def execute(self):
         player_state.check_state()
+
+        if not getattr(settings, "gacha_enabled", True):
+            logs.logger.info("[Gacha] Disabled via settings.gacha_enabled; skipping.")
+            return
         global berry_station
         global last_berry
         
@@ -76,7 +81,8 @@ class gacha_station(base_task):
         gacha.drop_off(gacha_metadata)
 
     def get_priority_level(self):
-        return 3
+        # Shifted to keep room for crafting tasks between pego and gachas.
+        return 4
     
     def get_requeue_delay(self):
         if settings.seeds_230:
@@ -94,6 +100,10 @@ class pego_station(base_task):
 
     def execute(self):
         player_state.check_state()
+
+        if not getattr(settings, "pego_enabled", True):
+            logs.logger.info("[Pego] Disabled via settings.pego_enabled; skipping.")
+            return
         
         pego_metadata = custom_stations.get_station_metadata(self.teleporter_name)
         dropoff_metadata = custom_stations.get_station_metadata(settings.drop_off)
@@ -128,6 +138,179 @@ class pego_station(base_task):
         return self.delay # delay cannot be constant as stations can cover different amounts of space each |||| 2 stacks of berries to 1 crystal 4 gachas to 1 pego
     
     
+class sparkpowder_station(base_task):
+
+    def __init__(self, name, teleporter_name, delay=0, deposit_height=3, initial_delay=0):
+        super().__init__()
+        self.name = name
+        self.teleporter_name = teleporter_name
+        # Re-queue delay (seconds) per station (from json_files/sparkpowder.json)
+        self.delay = float(delay or 0)
+        # Optional per-station initial delay before first run
+        self.initial_delay = float(initial_delay or 0)
+        self.deposit_height = deposit_height
+        self.one_shot = False  # task_manager checks this to avoid re-queueing
+
+    def execute(self):
+        player_state.check_state()
+
+        # Gate by BOTH the global crafting toggle and the sparkpowder feature toggle.
+        if not getattr(settings, "crafting", False) or not getattr(settings, "sparkpowder_enabled", False):
+            logs.logger.info("[Sparkpowder] Disabled in settings (crafting and/or sparkpowder_enabled); skipping.")
+            return
+
+        meta = custom_stations.get_station_metadata(self.teleporter_name)
+        logs.logger.info(f"[Sparkpowder] Teleport -> Station: {self.teleporter_name}")
+        teleporter.teleport_not_default(meta)
+        time.sleep(0.5 * getattr(settings, "lag_offset", 1.0))
+
+        # Ensure pitch starts neutral before we do our look-up/down offsets
+        utils.pitch_zero()
+        time.sleep(0.15 * settings.lag_offset)
+
+        # Stations face the common yaw; Megalab/Dedis are behind.
+        utils.turn_right(getattr(settings, "sparkpowder_turn_degrees", 180))
+        time.sleep(0.25 * settings.lag_offset)
+
+        # Look up to face the Megalab
+        utils.turn_up(getattr(settings, "sparkpowder_look_degrees", 45))
+        time.sleep(0.25 * settings.lag_offset)
+
+        # Open Megalab inventory, transfer existing sparkpowder, then craft more
+        inventory.open()
+        if not template.template_await_true(template.check_template, 1, "megalab", 0.7):
+            logs.logger.warning("[Sparkpowder] Megalab template not detected after open; retrying once")
+            inventory.close()
+            time.sleep(0.25 * settings.lag_offset)
+            player_state.check_state()
+            inventory.open()
+
+        if template.template_await_true(template.check_template, 1, "megalab", 0.7):
+            megalab_crafting.run_sparkpowder_cycle(craft_seconds=getattr(settings, "sparkpowder_craft_seconds", 2.0))
+        else:
+            logs.logger.error("[Sparkpowder] Unable to open Megalab inventory; skipping craft/deposit for this station")
+            inventory.close()
+            utils.pitch_zero()
+            utils.set_yaw(meta.yaw)
+            return
+
+        inventory.close()
+        time.sleep(0.25 * settings.lag_offset)
+
+        # Return pitch back to neutral (we looked up earlier)
+        utils.turn_down(getattr(settings, "sparkpowder_look_degrees", 45))
+        time.sleep(0.25 * settings.lag_offset)
+
+         # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned
+        utils.pitch_zero()
+        utils.set_yaw(meta.yaw)
+        
+        # Deposit to the station's dedicated storage boxes
+        deposit.dedi_deposit_custom_1(self.deposit_height)
+        time.sleep(0.25 * settings.lag_offset)
+
+        # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned
+        utils.pitch_zero()
+        utils.set_yaw(meta.yaw)
+
+    def get_priority_level(self):
+        # After pego (2), before gacha (4)
+        return 3
+
+    def get_requeue_delay(self):
+        # Prefer the per-station delay from sparkpowder.json; fall back to a global default.
+        if getattr(self, "delay", 0):
+            return float(self.delay)
+        return getattr(settings, "sparkpowder_requeue_delay", 1800)
+
+
+class gunpowder_station(base_task):
+
+    def __init__(self, name, teleporter_name, delay=0, deposit_height=3, initial_delay=0):
+        super().__init__()
+        self.name = name
+        self.teleporter_name = teleporter_name
+        # Re-queue delay (seconds) per station (from json_files/gunpowder.json)
+        self.delay = float(delay or 0)
+        # Optional per-station initial delay before first run
+        self.initial_delay = float(initial_delay or 0)
+        self.deposit_height = deposit_height
+        self.one_shot = False  # task_manager checks this to avoid re-queueing
+
+    def execute(self):
+        player_state.check_state()
+
+        # Gate by BOTH the global crafting toggle and the gunpowder feature toggle.
+        if not getattr(settings, "crafting", False) or not getattr(settings, "gunpowder_enabled", False):
+            logs.logger.info("[Gunpowder] Disabled in settings (crafting and/or gunpowder_enabled); skipping.")
+            return
+
+        meta = custom_stations.get_station_metadata(self.teleporter_name)
+        logs.logger.info(f"[Gunpowder] Teleport -> Station: {self.teleporter_name}")
+        teleporter.teleport_not_default(meta)
+        time.sleep(0.5 * getattr(settings, "lag_offset", 1.0))
+
+        # Ensure pitch starts neutral before we do our look-up/down offsets
+        utils.pitch_zero()
+        time.sleep(0.15 * settings.lag_offset)
+
+        # Look down to face the Megalab
+        look_deg = float(getattr(settings, "gunpowder_look_degrees", 25.0) or 25.0)
+        utils.turn_down(look_deg)
+        time.sleep(0.25 * settings.lag_offset)
+
+        # Open Megalab inventory, transfer existing gunpowder, then craft more
+        inventory.open()
+        if not template.template_await_true(template.check_template, 1, "megalab", 0.7):
+            logs.logger.warning("[Gunpowder] Megalab template not detected after open; retrying once")
+            inventory.close()
+            time.sleep(0.25 * settings.lag_offset)
+            player_state.check_state()
+            inventory.open()
+
+        if template.template_await_true(template.check_template, 1, "megalab", 0.7):
+            megalab_crafting.run_gunpowder_cycle(craft_seconds=getattr(settings, "gunpowder_craft_seconds", 2.0))
+        else:
+            logs.logger.error("[Gunpowder] Unable to open Megalab inventory; skipping craft/deposit for this station")
+            inventory.close()
+            utils.pitch_zero()
+            utils.set_yaw(meta.yaw)
+            return
+
+        inventory.close()
+        time.sleep(0.25 * settings.lag_offset)
+
+        # Return pitch back to neutral (we looked down earlier)
+        utils.turn_up(look_deg)
+        time.sleep(0.25 * settings.lag_offset)
+
+        # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned
+        utils.pitch_zero()
+        utils.set_yaw(meta.yaw)
+
+        
+        turn_deg = float(getattr(settings, "gunpowder_turn_degrees", 180.0) or 180.0)
+        if abs(turn_deg) > 0.1:
+            utils.turn_right(turn_deg)
+            time.sleep(0.25 * settings.lag_offset)
+
+        # Deposit to the station's dedicated storage boxes
+        deposit.dedi_deposit_custom_2(self.deposit_height)
+        time.sleep(0.25 * settings.lag_offset)
+
+        # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned
+        utils.pitch_zero()
+        utils.set_yaw(meta.yaw)
+
+    def get_priority_level(self):
+        # Same priority tier as sparkpowder (between pego and gacha)
+        return 3
+
+    def get_requeue_delay(self):
+        # Prefer the per-station delay from gunpowder.json; fall back to a global default.
+        if getattr(self, "delay", 0):
+            return float(self.delay)
+        return getattr(settings, "gunpowder_requeue_delay", 3000)
 class render_station(base_task):
     def __init__(self):
         super().__init__()
@@ -161,6 +344,10 @@ class snail_pheonix(base_task):
         self.depo_tp = depo
 
     def execute(self):
+        if not getattr(settings, "gacha_enabled", True):
+            logs.logger.info("[Gacha:Collect] Disabled via settings.gacha_enabled; skipping.")
+            return
+
         gacha_metadata = custom_stations.get_station_metadata(self.teleporter_name)
         gacha_metadata.side = self.direction
 
@@ -175,7 +362,8 @@ class snail_pheonix(base_task):
         time.sleep(0.2)
         
     def get_priority_level(self):
-        return 4
+        # Shifted to remain after normal gachas.
+        return 5
     def get_requeue_delay(self):
         return 13200
 

@@ -1,4 +1,14 @@
 /venv
+venv
 /__pycache__
 *.pyc
 settings.py
+/settings.py
+__pycache__
+ASA/__pycache__
+ASA/player/__pycache__
+ASA/strucutres/__pycache__
+ASA/stations/__pycache__
+Bot/__pycache__
+.git
+/.git
