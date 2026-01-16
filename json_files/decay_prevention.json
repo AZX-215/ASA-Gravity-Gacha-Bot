@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Render_Station_1",
+    "teleporter": "Render_Station_1",
+    "delay": 7200,
+    "initial_delay": 0
+  },
+  {
+    "name": "Render_Station_2",
+    "teleporter": "Render_Station_2",
+    "delay": 7200,
+    "initial_delay": 0
+  },
+  {
+    "name": "Render_Station_3",
+    "teleporter": "Render_Station_3",
+    "delay": 7200,
+    "initial_delay": 0
+  },
+  {
+    "name": "Render_Station_4",
+    "teleporter": "Render_Station_4",
+    "delay": 7200,
+    "initial_delay": 0
+  },
+  {
+    "name": "Render_Station_5",
+    "teleporter": "Render_Station_5",
+    "delay": 7200,
+    "initial_delay": 0
+  },
+  {
+    "name": "Render_Station_6",
+    "teleporter": "Render_Station_6",
+    "delay": 7200,
+    "initial_delay": 0
+  },
+  {
+    "name": "Render_Station_7",
+    "teleporter": "Render_Station_7",
+    "delay": 7200,
+    "initial_delay": 0
+  },
+  {
+    "name": "Render_Station_8",
+    "teleporter": "Render_Station_8",
+    "delay": 7200,
+    "initial_delay": 0
+  }
+]

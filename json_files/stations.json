@@ -1,4 +1,5 @@
 [
+    
     {
         "name": "SN MEGALAB #001.",
         "xpos": 0,
@@ -53,7 +54,63 @@
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
-        "yaw": 86.24
+        "yaw": 0
+    },
+    {
+        "name": "Render_Station_1",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": 0
+    },
+    {
+        "name": "Render_Station_2",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": 0
+    },
+    {
+        "name": "Render_Station_3",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": 0
+    },
+    {
+        "name": "Render_Station_4",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": 0
+    },
+    {
+        "name": "Render_Station_5",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": 0
+    },
+    {
+        "name": "Render_Station_6",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": 0
+    },
+    {
+        "name": "Render_Station_7",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": 0
+    },
+    {
+        "name": "Render_Station_8",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": 0
     }
 
 

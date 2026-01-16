@@ -2,49 +2,57 @@
   {
     "name": "SN MEGALAB #001.",
     "teleporter": "SN MEGALAB #001.",
-    "delay": 330,
-    "deposit_height": 3
+    "delay": 1200,
+    "deposit_height": 3,
+    "initial_delay": 0
   },
   {
     "name": "SN MEGALAB #002.",
     "teleporter": "SN MEGALAB #002.",
-    "delay": 330,
-    "deposit_height": 3
+    "delay": 1200,
+    "deposit_height": 3,
+    "initial_delay": 0
   },
   {
     "name": "SN MEGALAB #003.",
     "teleporter": "SN MEGALAB #003.",
-    "delay": 330,
-    "deposit_height": 3
+    "delay": 1200,
+    "deposit_height": 3,
+    "initial_delay": 0
   },
   {
     "name": "SN MEGALAB #004.",
     "teleporter": "SN MEGALAB #004.",
-    "delay": 330,
-    "deposit_height": 3
+    "delay": 1200,
+    "deposit_height": 3,
+    "initial_delay": 0
   },
   {
     "name": "SN MEGALAB #005.",
     "teleporter": "SN MEGALAB #005.",
-    "delay": 330,
-    "deposit_height": 3
+    "delay": 1200,
+    "deposit_height": 3,
+    "initial_delay": 0
   },
   {
     "name": "SN MEGALAB #006.",
     "teleporter": "SN MEGALAB #006.",
-    "delay": 330,
-    "deposit_height": 3
+    "delay": 1200,
+    "deposit_height": 3,
+    "initial_delay": 0
   },
   {
     "name": "SN MEGALAB #007.",
     "teleporter": "SN MEGALAB #007.",
-    "delay": 330,
-    "deposit_height": 3
+    "delay": 1200,
+    "deposit_height": 3,
+    "initial_delay": 0
   },
   {
     "name": "SN MEGALAB #008.",
     "teleporter": "SN MEGALAB #008.",
-    "delay": 330,
-    "deposit_height": 3
+    "delay": 1200,
+    "deposit_height": 3,
+    "initial_delay": 0
   }
 ]
