@@ -348,8 +348,9 @@ class decay_prevention_station(base_task):
         utils.set_yaw(meta.yaw)
 
     def get_priority_level(self):
-        # One tier lower priority than gacha_station (gacha is 4)
-        return 5
+        # Run alongside crafting (3) so it won't be starved by large gacha queues.
+        # Pego (2) still stays above it.
+        return 3
 
     def get_requeue_delay(self):
         if self.delay and self.delay > 0:
