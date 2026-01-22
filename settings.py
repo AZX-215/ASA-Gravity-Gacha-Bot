@@ -49,6 +49,7 @@ gunpowder_requeue_delay: int = 1800 # fallback if gunpowder.json delay is missin
 log_channel_gacha: int = 111111111111111
 log_active_queue: int = 111111111111111
 log_wait_queue: int = 111111111111111
+log_channel_alerts = <channel_id>
 discord_api_key: str = "111111111111111"
 
 
