@@ -56,6 +56,10 @@ async def send_new_logs():
     panel_msg = None
     last_sent = ""
 
+    # Alerts: keep history by posting separate messages for WARNING/ERROR/CRITICAL.
+    alert_levels = (" - WARNING - ", " - ERROR - ", " - CRITICAL - ")
+    alert_buffer = []
+
     def _toggle(v: bool) -> str:
         return "ON" if v else "OFF"
 
@@ -145,6 +149,30 @@ async def send_new_logs():
             if new_text:
                 for line in new_text.splitlines(True):
                     tail_lines.append(line)
+                    if any(level in line for level in alert_levels):
+                        alert_buffer.append(line)
+
+            # Post alert history as separate messages (best-effort, rate-safe).
+            if alert_buffer:
+                alert_channel_id = getattr(settings, "log_channel_alerts", None) or settings.log_channel_gacha
+                alert_channel = bot.get_channel(alert_channel_id) if alert_channel_id else None
+                if alert_channel:
+                    # Chunk alerts to respect Discord limits.
+                    chunk = ""
+                    while alert_buffer:
+                        line = alert_buffer.pop(0)
+                        if len(chunk) + len(line) > 1800:
+                            try:
+                                await alert_channel.send("**Alert**\n```\n" + chunk + "\n```")
+                            except Exception:
+                                pass
+                            chunk = ""
+                        chunk += line
+                    if chunk:
+                        try:
+                            await alert_channel.send("**Alert**\n```\n" + chunk + "\n```")
+                        except Exception:
+                            pass
 
             panel_text = _build_panel_text()
             if panel_text != last_sent:
@@ -246,22 +274,56 @@ async def reset(interaction: discord.Interaction,time:int):
     await interaction.response.send_message(f"pause task added will now pause for {time} seconds once the next task finishes")
     
 async def embed_send(queue_type):
-    log_channel = 0
+    """Continuously update queue panels.
+
+    We may need multiple messages (pages) to show the full queue while respecting
+    Discord embed limits. We edit existing messages instead of spamming.
+    """
     if queue_type == "active_queue":
         log_channel = bot.get_channel(settings.log_active_queue)
     else:
         log_channel = bot.get_channel(settings.log_wait_queue)
-    panel_msg = None
+
+    if not log_channel:
+        return
+
+    panel_msgs = []  # list[discord.Message]
+
     while True:
         try:
-            embed_msg = await discordbot.embed_create(queue_type)
-            if panel_msg is None:
-                panel_msg = await log_channel.send(embed=embed_msg)
-            else:
-                await panel_msg.edit(embed=embed_msg)
+            embeds = discordbot.build_queue_embeds(queue_type)
+
+            # Ensure we have enough messages.
+            for i, embed in enumerate(embeds):
+                if i >= len(panel_msgs) or panel_msgs[i] is None:
+                    panel_msgs.append(await log_channel.send(embed=embed))
+                else:
+                    try:
+                        await panel_msgs[i].edit(embed=embed)
+                    except Exception:
+                        # Message deleted or can't be edited; recreate.
+                        panel_msgs[i] = await log_channel.send(embed=embed)
+
+            # Remove extra messages if page count shrank.
+            extra = panel_msgs[len(embeds):]
+            if extra:
+                for msg in extra:
+                    if msg is None:
+                        continue
+                    try:
+                        await msg.delete()
+                    except Exception:
+                        # If deletion isn't allowed, overwrite with a minimal placeholder.
+                        try:
+                            await msg.edit(embed=discord.Embed(title=f"{queue_type}", description="(page removed)"))
+                        except Exception:
+                            pass
+                panel_msgs = panel_msgs[:len(embeds)]
+
         except Exception:
-            # If the message was deleted or permissions changed, recreate next tick.
-            panel_msg = None
+            # Best effort; try again next tick.
+            pass
+
         await asyncio.sleep(30)
 
 @bot.tree.command()
