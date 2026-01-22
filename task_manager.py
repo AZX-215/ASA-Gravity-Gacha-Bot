@@ -391,6 +391,26 @@ def main():
         "render": 0,
     }
 
+    # One explicit enabled/disabled summary at startup (useful for Discord log history).
+    try:
+        pego = bool(getattr(settings, "pego_enabled", True))
+        gacha = bool(getattr(settings, "gacha_enabled", True))
+        crafting = bool(getattr(settings, "crafting", False))
+        spark = bool(getattr(settings, "sparkpowder_enabled", False))
+        gun = bool(getattr(settings, "gunpowder_enabled", False))
+        decay = bool(getattr(settings, "decay_prevention_enabled", False))
+
+        logs.logger.info(
+            "Enabled task types: "
+            f"pego={'ON' if pego else 'OFF'}, "
+            f"gacha={'ON' if gacha else 'OFF'}, "
+            f"crafting={'ON' if crafting else 'OFF'}(spark={'ON' if spark else 'OFF'}, gun={'ON' if gun else 'OFF'}), "
+            f"decay_prevention={'ON' if decay else 'OFF'}, "
+            "render=ON"
+        )
+    except Exception:
+        pass
+
     # ---------------- Pegos ----------------
     if getattr(settings, "pego_enabled", True):
         pego_data = load_resolution_data("json_files/pego.json")

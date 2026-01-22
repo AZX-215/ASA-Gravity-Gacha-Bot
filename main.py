@@ -276,8 +276,8 @@ async def reset(interaction: discord.Interaction,time:int):
 async def embed_send(queue_type):
     """Continuously update queue panels.
 
-    We may need multiple messages (pages) to show the full queue while respecting
-    Discord embed limits. We edit existing messages instead of spamming.
+    Single-message panel that updates by editing.
+    Shows first N tasks (default 15) plus an "...and X more" footer.
     """
     if queue_type == "active_queue":
         log_channel = bot.get_channel(settings.log_active_queue)
@@ -287,38 +287,22 @@ async def embed_send(queue_type):
     if not log_channel:
         return
 
-    panel_msgs = []  # list[discord.Message]
+    panel_msg = None
+
+    # How many tasks to display in the queue panels.
+    max_tasks = int(getattr(settings, "queue_preview_limit", 15) or 15)
 
     while True:
         try:
-            embeds = discordbot.build_queue_embeds(queue_type)
+            embed = await discordbot.embed_create(queue_type, limit=max_tasks)
 
-            # Ensure we have enough messages.
-            for i, embed in enumerate(embeds):
-                if i >= len(panel_msgs) or panel_msgs[i] is None:
-                    panel_msgs.append(await log_channel.send(embed=embed))
-                else:
-                    try:
-                        await panel_msgs[i].edit(embed=embed)
-                    except Exception:
-                        # Message deleted or can't be edited; recreate.
-                        panel_msgs[i] = await log_channel.send(embed=embed)
-
-            # Remove extra messages if page count shrank.
-            extra = panel_msgs[len(embeds):]
-            if extra:
-                for msg in extra:
-                    if msg is None:
-                        continue
-                    try:
-                        await msg.delete()
-                    except Exception:
-                        # If deletion isn't allowed, overwrite with a minimal placeholder.
-                        try:
-                            await msg.edit(embed=discord.Embed(title=f"{queue_type}", description="(page removed)"))
-                        except Exception:
-                            pass
-                panel_msgs = panel_msgs[:len(embeds)]
+            if panel_msg is None:
+                panel_msg = await log_channel.send(embed=embed)
+            else:
+                try:
+                    await panel_msg.edit(embed=embed)
+                except Exception:
+                    panel_msg = await log_channel.send(embed=embed)
 
         except Exception:
             # Best effort; try again next tick.
