@@ -28,49 +28,91 @@ class SingletonMeta(type):
 
 
 class priority_queue_exc:
-    """Execution-time ordered queue (soonest first)."""
+    """Execution-time ordered queue (soonest first).
+
+    Note: The scheduler runs in a worker thread while Discord embeds/log panels
+    read queue state from the asyncio thread. This queue provides thread-safe
+    operations and snapshots.
+    """
 
     def __init__(self):
         self.queue = []
+        self._lock = Lock()
+        self._counter = 0
 
     def add(self, task, priority, execution_time):
-        heapq.heappush(self.queue, (execution_time, len(self.queue), priority, task))
+        with self._lock:
+            self._counter += 1
+            heapq.heappush(self.queue, (execution_time, self._counter, priority, task))
 
     def pop(self):
-        if not self.is_empty():
-            return heapq.heappop(self.queue)
+        with self._lock:
+            if self.queue:
+                return heapq.heappop(self.queue)
         return None
 
     def peek(self):
-        if not self.is_empty():
-            return self.queue[0]
+        with self._lock:
+            if self.queue:
+                return self.queue[0]
         return None
 
     def is_empty(self):
-        return len(self.queue) == 0
+        with self._lock:
+            return len(self.queue) == 0
+
+    def snapshot(self, limit=None):
+        """Return a sorted snapshot of the heap for UI/debugging."""
+        with self._lock:
+            data = list(self.queue)
+        data = sorted(data)
+        if limit is not None:
+            return data[:limit]
+        return data
+
 
 
 class priority_queue_prio:
-    """Priority ordered queue (lowest number = highest priority)."""
+    """Priority ordered queue (lowest number = highest priority).
+
+    Thread-safe operations and snapshots for UI.
+    """
 
     def __init__(self):
         self.queue = []
+        self._lock = Lock()
+        self._counter = 0
 
     def add(self, task, priority, execution_time):
-        heapq.heappush(self.queue, (priority, execution_time, len(self.queue), task))
+        with self._lock:
+            self._counter += 1
+            heapq.heappush(self.queue, (priority, execution_time, self._counter, task))
 
     def pop(self):
-        if not self.is_empty():
-            return heapq.heappop(self.queue)
+        with self._lock:
+            if self.queue:
+                return heapq.heappop(self.queue)
         return None
 
     def peek(self):
-        if not self.is_empty():
-            return self.queue[0]
+        with self._lock:
+            if self.queue:
+                return self.queue[0]
         return None
 
     def is_empty(self):
-        return len(self.queue) == 0
+        with self._lock:
+            return len(self.queue) == 0
+
+    def snapshot(self, limit=None):
+        """Return a sorted snapshot of the heap for UI/debugging."""
+        with self._lock:
+            data = list(self.queue)
+        data = sorted(data)
+        if limit is not None:
+            return data[:limit]
+        return data
+
 
 
 class watchdog_render_task:
@@ -175,16 +217,22 @@ class task_scheduler(metaclass=SingletonMeta):
             pass
 
         self.waiting_queue.add(task, task.get_priority_level(), next_execution_time)
-        logs.logger.info(f"Added task {getattr(task, 'name', '<unnamed>')} to waiting queue")
+        # Keep this at DEBUG to avoid flooding logs at startup (can exceed Discord limits).
+        logs.logger.debug(f"Added task {getattr(task, 'name', '<unnamed>')} to waiting queue")
 
     def run(self):
         while True:
-            current_time = time.time()
-            self.move_ready_tasks_to_active_queue(current_time)
+            try:
+                current_time = time.time()
+                self.move_ready_tasks_to_active_queue(current_time)
 
-            if not self.active_queue.is_empty():
-                self.execute_task(current_time)
-            else:
+                if not self.active_queue.is_empty():
+                    self.execute_task(current_time)
+                else:
+                    time.sleep(5)
+            except Exception as e:
+                # Never allow the scheduler thread to die silently.
+                logs.logger.exception(f"Scheduler loop error: {e}")
                 time.sleep(5)
 
     def move_ready_tasks_to_active_queue(self, current_time):
@@ -331,6 +379,18 @@ def main():
     global started
     scheduler = task_scheduler()
 
+    # Expose basic stats to the Discord log panel (read-only).
+    scheduler.started_at = time.time()
+    loaded_counts = {
+        "pego": 0,
+        "gacha": 0,
+        "collect": 0,
+        "sparkpowder": 0,
+        "gunpowder": 0,
+        "decay_prevention": 0,
+        "render": 0,
+    }
+
     # ---------------- Pegos ----------------
     if getattr(settings, "pego_enabled", True):
         pego_data = load_resolution_data("json_files/pego.json")
@@ -339,6 +399,7 @@ def main():
             teleporter_name = entry_pego["teleporter"]
             delay = entry_pego["delay"]
             scheduler.add_task(stations.pego_station(name, teleporter_name, delay))
+            loaded_counts["pego"] += 1
     else:
         logs.logger.info("Pego tasks disabled (settings.pego_enabled=False)")
 
@@ -353,8 +414,10 @@ def main():
             if resource == "collect":
                 depo = entry_gacha["depo_tp"]
                 task = stations.snail_pheonix(name, teleporter_name, direction, depo)
+                loaded_counts["collect"] += 1
             else:
                 task = stations.gacha_station(name, teleporter_name, direction)
+                loaded_counts["gacha"] += 1
             scheduler.add_task(task)
     else:
         logs.logger.info("Gacha tasks disabled (settings.gacha_enabled=False)")
@@ -374,6 +437,7 @@ def main():
                 continue
 
             scheduler.add_task(stations.sparkpowder_station(sp_name, sp_tp, sp_delay, sp_height, sp_initial))
+            loaded_counts["sparkpowder"] += 1
 
     # ---------------- Crafting: Gunpowder ----------------
     if getattr(settings, "crafting", False) and getattr(settings, "gunpowder_enabled", False):
@@ -390,10 +454,30 @@ def main():
                 continue
 
             scheduler.add_task(stations.gunpowder_station(gp_name, gp_tp, gp_delay, gp_height, gp_initial))
+            loaded_counts["gunpowder"] += 1
 
     # ---------------- Auto-decay prevention ----------------
     if getattr(settings, "decay_prevention_enabled", False):
         decay_data = load_resolution_data("json_files/decay_prevention.json")
+
+        # If the user has many decay tasks and all initial_delay values are 0/omitted,
+        # auto-stagger them so they don't all run back-to-back on startup.
+        # (This keeps coverage distributed over the configured delay window.)
+        try:
+            if isinstance(decay_data, list) and len(decay_data) > 1:
+                initials = [float((e.get("initial_delay", 0) or 0)) for e in decay_data if isinstance(e, dict)]
+                if initials and all(v <= 0 for v in initials):
+                    # Use the first entry's delay as the window (fall back to settings default).
+                    first_delay = float((decay_data[0].get("delay", 0) or 0)) if isinstance(decay_data[0], dict) else 0.0
+                    window = first_delay if first_delay > 0 else float(getattr(settings, "decay_prevention_requeue_delay", 21600))
+                    step = max(1.0, window / float(len(decay_data)))
+                    for i, e in enumerate(decay_data):
+                        if isinstance(e, dict):
+                            e["initial_delay"] = round(i * step, 2)
+                    logs.logger.info(f"[DecayPrevention] Auto-staggered {len(decay_data)} tasks across ~{int(window)}s (step ~{int(step)}s)")
+        except Exception:
+            pass
+
         for entry in decay_data:
             d_name = entry.get("name") or entry.get("teleporter")
             d_tp = entry.get("teleporter") or entry.get("name")
@@ -405,9 +489,25 @@ def main():
                 continue
 
             scheduler.add_task(stations.decay_prevention_station(d_name, d_tp, d_delay, d_initial))
+            loaded_counts["decay_prevention"] += 1
 
     # Render should always be active (no toggle); bot logic depends on it.
     scheduler.add_task(stations.render_station())
+    loaded_counts["render"] += 1
+
+    scheduler.loaded_counts = loaded_counts
+
+    # One concise startup summary line (useful in Discord).
+    logs.logger.info(
+        "Task load summary: "
+        f"pego={loaded_counts['pego']}, "
+        f"gacha={loaded_counts['gacha']}, "
+        f"collect={loaded_counts['collect']}, "
+        f"sparkpowder={loaded_counts['sparkpowder']}, "
+        f"gunpowder={loaded_counts['gunpowder']}, "
+        f"decay_prevention={loaded_counts['decay_prevention']}, "
+        f"render={loaded_counts['render']}"
+    )
 
     logs.logger.info("scheduler now running")
     started = True

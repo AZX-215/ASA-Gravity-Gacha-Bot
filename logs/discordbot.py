@@ -13,7 +13,7 @@ async def embed_create(queue_type):
             return embed
         
         count = 0
-        for i, entry in enumerate(queue.queue):
+        for i, entry in enumerate(queue.snapshot() if hasattr(queue, 'snapshot') else queue.queue):
             if count >= 5:
                 embed.add_field(
                     name=f"...and {len(queue.queue) - 5} more tasks.",
