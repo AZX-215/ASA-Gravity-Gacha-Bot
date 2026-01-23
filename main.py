@@ -57,8 +57,17 @@ async def send_new_logs():
     last_sent = ""
 
     # Alerts: keep history by posting separate messages for WARNING/ERROR/CRITICAL.
+    # Each alert is stored as (task_context, raw_line) so the alerts channel shows where it occurred.
     alert_levels = (" - WARNING - ", " - ERROR - ", " - CRITICAL - ")
-    alert_buffer = []
+    alert_buffer = []  # list[tuple[str, str]]
+
+    def _extract_task_ctx(line: str) -> str:
+        # Expected format (after task context injection):
+        #   HH:MM:SS - LEVEL - TASKCTX - func - message
+        parts = line.split(" - ")
+        if len(parts) >= 5:
+            return parts[2].strip()
+        return ""
 
     def _toggle(v: bool) -> str:
         return "ON" if v else "OFF"
@@ -150,29 +159,54 @@ async def send_new_logs():
                 for line in new_text.splitlines(True):
                     tail_lines.append(line)
                     if any(level in line for level in alert_levels):
-                        alert_buffer.append(line)
+                        alert_buffer.append((_extract_task_ctx(line), line))
 
             # Post alert history as separate messages (best-effort, rate-safe).
             if alert_buffer:
+                # Prefer a dedicated alerts channel when configured.
                 alert_channel_id = getattr(settings, "log_channel_alerts", None) or settings.log_channel_gacha
                 alert_channel = bot.get_channel(alert_channel_id) if alert_channel_id else None
+
                 if alert_channel:
                     # Chunk alerts to respect Discord limits.
-                    chunk = ""
-                    while alert_buffer:
-                        line = alert_buffer.pop(0)
-                        if len(chunk) + len(line) > 1800:
-                            try:
-                                await alert_channel.send("**Alert**\n```\n" + chunk + "\n```")
-                            except Exception:
-                                pass
-                            chunk = ""
-                        chunk += line
-                    if chunk:
+                    chunk_lines = []
+                    chunk_len = 0
+                    chunk_tasks = set()
+
+                    def _flush_header() -> str:
+                        # If everything in this chunk is from the same task ctx, include it.
+                        if len(chunk_tasks) == 1:
+                            only = next(iter(chunk_tasks))
+                            if only and only != "-":
+                                return f"**Alert** (task: {only})"
+                        return "**Alert**"
+
+                    async def _flush_chunk():
+                        nonlocal chunk_lines, chunk_len, chunk_tasks
+                        if not chunk_lines:
+                            return
+                        header = _flush_header()
+                        body = "".join(chunk_lines)
                         try:
-                            await alert_channel.send("**Alert**\n```\n" + chunk + "\n```")
+                            await alert_channel.send(header + "\n```\n" + body + "\n```")
                         except Exception:
                             pass
+                        chunk_lines = []
+                        chunk_len = 0
+                        chunk_tasks = set()
+
+                    while alert_buffer:
+                        task_ctx, line = alert_buffer.pop(0)
+                        # Avoid Discord message limit (~2000). Keep body under ~1800.
+                        if chunk_len + len(line) > 1800:
+                            await _flush_chunk()
+
+                        chunk_lines.append(line)
+                        chunk_len += len(line)
+                        if task_ctx:
+                            chunk_tasks.add(task_ctx)
+
+                    await _flush_chunk()
 
             panel_text = _build_panel_text()
             if panel_text != last_sent:
