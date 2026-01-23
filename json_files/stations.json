@@ -57,133 +57,140 @@
         "yaw": 86.24
     },
     {
-        "name": "Render_Station_1",
+        "name": "RENDER_STATION_1",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_2",
+        "name": "RENDER_STATION_2",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_3",
+        "name": "RENDER_STATION_3",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_4",
+        "name": "RENDER_STATION_4",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_5",
+        "name": "RENDER_STATION_5",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_6",
+        "name": "RENDER_STATION_6",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_7",
+        "name": "RENDER_STATION_7",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_8",
+        "name": "RENDER_STATION_8",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_9",
+        "name": "RENDER_STATION_9",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_10",
+        "name": "RENDER_STATION_10",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_11",
+        "name": "RENDER_STATION_11",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_12",
+        "name": "RENDER_STATION_12",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_13",
+        "name": "RENDER_STATION_13",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_14",
+        "name": "RENDER_STATION_14",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_15",
+        "name": "RENDER_STATION_15",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_16",
+        "name": "RENDER_STATION_16",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_17",
+        "name": "RENDER_STATION_17",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_18",
+        "name": "RENDER_STATION_18",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
     },
     {
-        "name": "Render_Station_19",
+        "name": "RENDER_STATION_19",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_20",
         "xpos": 0,
         "ypos": 0,
         "zpos": 0,
@@ -191,3 +198,4 @@
     }
 
 ]
+
