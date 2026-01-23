@@ -1,11 +1,12 @@
 import logging
+from typing import Optional
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 """Central logging for the bot.
 
 Why this exists:
-- We tail logs to Discord. If logging writes to a relative path and the process
+- It posts logs to Discord. If logging writes to a relative path and the process
   working directory changes (common on hosted services), the Discord tailer and
   the logger can end up reading/writing different files.
 - Discord has a 2000 character message limit. The Discord tailer is now a live
@@ -32,6 +33,29 @@ LOG_FILE = (LOG_DIR / "logs.txt").resolve()
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
+# ---------------- Task context injection ----------------
+# The scheduler sets this before executing a task so every log line can
+# include the station/task name that produced it.
+_TASK_CONTEXT = ""
+
+
+def set_task_context(task: Optional[str]) -> None:
+    global _TASK_CONTEXT
+    _TASK_CONTEXT = (task or "").strip()
+
+
+def clear_task_context() -> None:
+    global _TASK_CONTEXT
+    _TASK_CONTEXT = ""
+
+
+class _TaskContextFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Always provide the attribute so the formatter can't crash.
+        record.task = _TASK_CONTEXT if _TASK_CONTEXT else "-"
+        return True
+
+
 # ---------------- Logger config ----------------
 logger = logging.getLogger("Gacha")
 logger.setLevel(logging.DEBUG)
@@ -47,10 +71,11 @@ def _ensure_file_handler():
     fh = RotatingFileHandler(LOG_FILE, maxBytes=5*1024*1024, backupCount=3, encoding="utf-8")
     fh.setLevel(logging.DEBUG)
     fmt = logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(funcName)s - %(message)s",
+        "%(asctime)s - %(levelname)s - %(task)s - %(funcName)s - %(message)s",
         datefmt="%H:%M:%S",
     )
     fh.setFormatter(fmt)
+    fh.addFilter(_TaskContextFilter())
     logger.addHandler(fh)
 
 
