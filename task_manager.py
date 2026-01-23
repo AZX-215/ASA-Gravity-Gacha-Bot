@@ -259,20 +259,42 @@ class task_scheduler(metaclass=SingletonMeta):
             self.active_queue.add(task, priority, exec_time)
             return
 
+        task_name = getattr(task, "name", "<unnamed>")
+        teleporter_name = getattr(task, "teleporter_name", "")
+
+        # Log context: include both task name and teleporter/station when available.
+        # This is injected into every log line so alerts can show where they occurred.
+        ctx = task_name
+        if teleporter_name and teleporter_name != task_name:
+            ctx = f"{task_name}@{teleporter_name}"
+        try:
+            logs.set_task_context(ctx)
+        except Exception:
+            pass
+
         # Toggle gate: skip tasks that are disabled (and do not re-queue them)
         if not self._is_task_enabled(task):
-            logs.logger.info(f"Skipping disabled task: {getattr(task, 'name', '<unnamed>')}")
+            logs.logger.info(f"Skipping disabled task: {task_name}")
             self._discard_from_tracking(task)
-            self.prev_task_name = getattr(task, "name", "")
+            self.prev_task_name = task_name
+            try:
+                logs.clear_task_context()
+            except Exception:
+                pass
             return
 
-        if getattr(task, "name", "") != self.prev_task_name:
-            logs.logger.info(f"Executing task: {getattr(task, 'name', '<unnamed>')}")
+        if task_name != self.prev_task_name:
+            logs.logger.info(f"Executing task: {task_name}")
 
         try:
             task.execute()
         except Exception as e:
-            logs.logger.exception(f"Task {getattr(task, 'name', '<unnamed>')} raised: {e}")
+            logs.logger.exception(f"Task {task_name} raised: {e}")
+        finally:
+            try:
+                logs.clear_task_context()
+            except Exception:
+                pass
 
         now = time.time()
 
@@ -499,8 +521,10 @@ def main():
             pass
 
         for entry in decay_data:
-            d_name = entry.get("name") or entry.get("teleporter")
-            d_tp = entry.get("teleporter") or entry.get("name")
+            if not isinstance(entry, dict):
+                continue
+            d_name = entry.get("name") or entry.get("station_name") or entry.get("teleporter")
+            d_tp = entry.get("teleporter") or entry.get("station_name") or entry.get("name")
             d_delay = entry.get("delay", 0)
             d_initial = entry.get("initial_delay", 0)
 
@@ -511,15 +535,14 @@ def main():
             scheduler.add_task(stations.decay_prevention_station(d_name, d_tp, d_delay, d_initial))
             loaded_counts["decay_prevention"] += 1
 
-    # Render should always be active (no toggle); bot logic depends on it.
+    # ---------------- Render station (always) ----------------
     scheduler.add_task(stations.render_station())
     loaded_counts["render"] += 1
 
     scheduler.loaded_counts = loaded_counts
 
-    # One concise startup summary line (useful in Discord).
     logs.logger.info(
-        "Task load summary: "
+        "Loaded tasks: "
         f"pego={loaded_counts['pego']}, "
         f"gacha={loaded_counts['gacha']}, "
         f"collect={loaded_counts['collect']}, "
@@ -529,11 +552,10 @@ def main():
         f"render={loaded_counts['render']}"
     )
 
-    logs.logger.info("scheduler now running")
+    logs.logger.info(f"Starting scheduler loop (waiting={len(scheduler.waiting_queue.queue)})")
     started = True
     scheduler.run()
 
 
 if __name__ == "__main__":
-    time.sleep(2)
     main()
