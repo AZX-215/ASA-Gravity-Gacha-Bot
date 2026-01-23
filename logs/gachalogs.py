@@ -1,16 +1,14 @@
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Optional
+import threading
 
 """Central logging for the bot.
 
-Why this exists:
-- We tail logs to Discord. If logging writes to a relative path and the process
-  working directory changes (common on hosted services), the Discord tailer and
-  the logger can end up reading/writing different files.
-- Discord has a 2000 character message limit. The Discord tailer is now a live
-  panel (message edit) that shows a bounded tail.
+Key points:
+- Logs are tailed to Discord from a fixed file location.
+- A per-thread task context is injected into each log line so warnings/errors
+  can be attributed to the task/station that was running when they occurred.
 """
 
 
@@ -27,32 +25,41 @@ def template(self, message, *args, **kwargs):
 logging.Logger.template = template
 
 
-# ---------------- File location (stable) ----------------
-LOG_DIR = Path(__file__).resolve().parent
-LOG_FILE = (LOG_DIR / "logs.txt").resolve()
-LOG_DIR.mkdir(parents=True, exist_ok=True)
+# ---------------- Per-thread task context ----------------
+_task_ctx = threading.local()
 
 
-# ---------------- Task context injection ----------------
-# The scheduler sets this before executing a task so every log line can include
-# the task / station that produced it (useful for Discord alerts).
-_TASK_CONTEXT = ""
+def set_task_context(name: str):
+    """Set the current task/station context for logs emitted on this thread."""
+    try:
+        _task_ctx.name = str(name) if name else "-"
+    except Exception:
+        _task_ctx.name = "-"
 
 
-def set_task_context(task: Optional[str]) -> None:
-    global _TASK_CONTEXT
-    _TASK_CONTEXT = (task or "").strip()
+def clear_task_context():
+    """Clear the current task context for this thread."""
+    try:
+        _task_ctx.name = "-"
+    except Exception:
+        pass
 
 
-def clear_task_context() -> None:
-    global _TASK_CONTEXT
-    _TASK_CONTEXT = ""
+def _get_task_context() -> str:
+    return getattr(_task_ctx, "name", "-") or "-"
 
 
 class _TaskContextFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
-        record.task = _TASK_CONTEXT if _TASK_CONTEXT else "-"
+        # Inject attribute used by the formatter
+        record.task_ctx = _get_task_context()
         return True
+
+
+# ---------------- File location (stable) ----------------
+LOG_DIR = Path(__file__).resolve().parent
+LOG_FILE = (LOG_DIR / "logs.txt").resolve()
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ---------------- Logger config ----------------
@@ -70,12 +77,13 @@ def _ensure_file_handler():
     fh = RotatingFileHandler(LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
     fh.setLevel(logging.DEBUG)
 
+    fh.addFilter(_TaskContextFilter())
+
     fmt = logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(task)s - %(funcName)s - %(message)s",
+        "%(asctime)s - %(levelname)s - %(task_ctx)s - %(funcName)s - %(message)s",
         datefmt="%H:%M:%S",
     )
     fh.setFormatter(fmt)
-    fh.addFilter(_TaskContextFilter())
     logger.addHandler(fh)
 
 

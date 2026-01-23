@@ -58,15 +58,7 @@ async def send_new_logs():
 
     # Alerts: keep history by posting separate messages for WARNING/ERROR/CRITICAL.
     alert_levels = (" - WARNING - ", " - ERROR - ", " - CRITICAL - ")
-    alert_buffer = []  # list[tuple[str, str]]
-
-    def _extract_task_ctx(line: str) -> str:
-        # Expected format:
-        #   HH:MM:SS - LEVEL - TASKCTX - funcName - message
-        parts = line.split(" - ")
-        if len(parts) >= 5:
-            return parts[2].strip()
-        return ""
+    alert_buffer = []
 
     def _toggle(v: bool) -> str:
         return "ON" if v else "OFF"
@@ -114,6 +106,21 @@ async def send_new_logs():
             pass
 
         return enabled_line
+
+    def _extract_task_ctx(line: str) -> str:
+        """Extract the task context from a formatted log line.
+
+        Expected format (from logs.gachalogs):
+            HH:MM:SS - LEVEL - TASK - func - message
+        """
+        try:
+            parts = line.split(" - ")
+            if len(parts) >= 3:
+                ctx = parts[2].strip()
+                return ctx if ctx else "-"
+        except Exception:
+            pass
+        return "-"
 
     def _build_panel_text() -> str:
         # Avoid including a constantly-changing timestamp in the content; Discord already shows
@@ -165,7 +172,7 @@ async def send_new_logs():
                 alert_channel_id = getattr(settings, "log_channel_alerts", None) or settings.log_channel_gacha
                 alert_channel = bot.get_channel(alert_channel_id) if alert_channel_id else None
                 if alert_channel:
-                    # Chunk alerts to respect Discord limits and preserve history.
+                    # Chunk alerts to respect Discord limits and preserve some context.
                     chunk_lines = []
                     chunk_len = 0
                     chunk_tasks = set()
@@ -203,7 +210,7 @@ async def send_new_logs():
 
                     await _flush_chunk()
 
-panel_text = _build_panel_text()
+            panel_text = _build_panel_text()
             if panel_text != last_sent:
                 if panel_msg is None:
                     panel_msg = await log_channel.send(panel_text)

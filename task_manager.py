@@ -259,30 +259,30 @@ class task_scheduler(metaclass=SingletonMeta):
             self.active_queue.add(task, priority, exec_time)
             return
 
-        
-        task_name = getattr(task, "name", "<unnamed>")
-        teleporter_name = getattr(task, "teleporter_name", "")
-
-        # Inject task/station context into the logger so Discord alerts can show
-        # where the warning/error happened.
-        ctx = task_name
-        if teleporter_name and teleporter_name != task_name:
-            ctx = f"{task_name}@{teleporter_name}"
-        try:
-            logs.set_task_context(ctx)
-        except Exception:
-            pass
-
-# Toggle gate: skip tasks that are disabled (and do not re-queue them)
+        # Toggle gate: skip tasks that are disabled (and do not re-queue them)
         if not self._is_task_enabled(task):
+            # Still attach context so the skip is attributable in Discord alerts/history
+            try:
+                logs.set_task_context(getattr(task, "name", "-"))
+            except Exception:
+                pass
+
             logs.logger.info(f"Skipping disabled task: {getattr(task, 'name', '<unnamed>')}")
-            self._discard_from_tracking(task)
-            self.prev_task_name = getattr(task, "name", "")
+
             try:
                 logs.clear_task_context()
             except Exception:
                 pass
+
+            self._discard_from_tracking(task)
+            self.prev_task_name = getattr(task, "name", "")
             return
+
+        # Attach task context to all logs emitted during this execution.
+        try:
+            logs.set_task_context(getattr(task, "name", "-"))
+        except Exception:
+            pass
 
         if getattr(task, "name", "") != self.prev_task_name:
             logs.logger.info(f"Executing task: {getattr(task, 'name', '<unnamed>')}")
@@ -290,7 +290,7 @@ class task_scheduler(metaclass=SingletonMeta):
         try:
             task.execute()
         except Exception as e:
-            logs.logger.exception(f"Task {task_name} raised: {e}")
+            logs.logger.exception(f"Task {getattr(task, 'name', '<unnamed>')} raised: {e}")
         finally:
             try:
                 logs.clear_task_context()
