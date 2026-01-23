@@ -113,7 +113,14 @@
     "teleporter": "Render_Station_19",
     "delay": 14400,
     "initial_delay": 19
+  },
+  {
+    "name": "Render_Station_20",
+    "teleporter": "Render_Station_20",
+    "delay": 14400,
+    "initial_delay": 20
   }
 
 
 ]
+
