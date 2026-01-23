@@ -2,170 +2,136 @@ import settings
 import time
 import template
 import logs.gachalogs as logs
-import windows
-from bot import config, deposit, gacha, iguanadon, pego
+import bot.render
+import utils
+from ASA.strucutres import bed , teleporter , inventory
+from ASA.player import buffs , console , player_state , tribelog , player_inventory
+from ASA.stations import custom_stations
+from bot import config , deposit , gacha , iguanadon , pego 
 from crafting.ARB import megalab as megalab_crafting
+from abc import ABC ,abstractmethod
+global berry_station
+global last_berry
+last_berry = 0
+berry_station = True
 
-from ASA.player import player_state, teleporter, inventory, tribelog, buffs
-from ASA.player import utils
-from bot import custom_stations
-from bot.custom_stations import (
-    gacha_station_metadata,
-    pego_station_metadata,
-    iguanadon_station_metadata,
-    sparkpowder_station_metadata,
-    gunpowder_station_metadata,
-    decay_prevention_station_metadata,
-    render_station_metadata,
-)
-
-# A "one shot" task runs only once and is not re-queued.
-one_shot_names = {
-    "collect",
-    "grinder",
-    "drop_off",
-    "watchdog_render_task",
-}
-
-# --------------------------------------------------------------------------------------
-# Base Task
-# --------------------------------------------------------------------------------------
-class base_task:
+class base_task(ABC):
     def __init__(self):
-        self.delay = 0
-        self.one_shot = False
-        self.initial_delay = 0
+        self.has_run_before = False
+        
+    @abstractmethod
+    def execute(self):
+        pass
+    @abstractmethod
+    def get_priority_level(self):
+        pass
+    @abstractmethod
+    def get_requeue_delay(self):
+        pass
+    
+    def mark_as_run(self):
+        self.has_run_before = True
+
+class gacha_station(base_task):
+    def __init__(self,name,teleporter_name,direction):
+        super().__init__()
+        self.name = name
+        self.teleporter_name = teleporter_name
+        self.direction = direction
+
 
     def execute(self):
-        raise NotImplementedError()
+        player_state.check_state()
+        global berry_station
+        global last_berry
+        
+        temp = False
+        time_between = time.time() - last_berry
+
+        gacha_metadata = custom_stations.get_station_metadata(self.teleporter_name)
+        gacha_metadata.side = self.direction
+
+        berry_metadata = custom_stations.get_station_metadata(settings.berry_station)
+        iguanadon_metadata = custom_stations.get_station_metadata(settings.iguanadon)
+
+        if (berry_station or time_between > config.time_to_reberry*60*60): # if time is greater than 4 hours since the last time you went to berry station 
+            teleporter.teleport_not_default(berry_metadata)                    # or if berry station is true( when you go to tekpod and drop all ) and the time between has been longer than 30 mins since youve last been 
+            if settings.external_berry: 
+                logs.logger.debug("sleeping for 20 seconds as external")
+                time.sleep(20)#letting station spawn in if you have to tp away
+            iguanadon.berry_station()
+            last_berry = time.time()
+            berry_station = False
+            temp = True
+        
+        teleporter.teleport_not_default(iguanadon_metadata) # iguanadon is a centeral tp
+        
+        if settings.external_berry and temp: # quick fix for level 1 bug
+            logs.logger.debug("reconnecting because of level 1 bug - you chose external berry will sleep for 60 seconds as a way to ensure that we are fully loaded in")
+            console.console_write("reconnect")
+            time.sleep(60) # takes a while for the reonnect to actually go into action
+
+        iguanadon.iguanadon(iguanadon_metadata)
+        teleporter.teleport_not_default(gacha_metadata)
+        time.sleep(0.2)
+        gacha.drop_off(gacha_metadata)
 
     def get_priority_level(self):
-        return 0
+        # Shifted to keep room for crafting tasks between pego and gachas.
+        return 4
+    
+    def get_requeue_delay(self):
+        if settings.seeds_230:
+            delay = 10700  # should take about this amount of time to do 230 slots of seeds 
+        else:
+            delay = 6600    # delay can be constant as it will be the same for all gachas 142 stacks took 110 mins
+        return delay 
+
+class pego_station(base_task):
+    def __init__(self,name,teleporter_name,delay):
+        super().__init__()
+        self.name = name
+        self.teleporter_name = teleporter_name
+        self.delay = delay
+
+    def execute(self):
+        player_state.check_state()
+        
+        pego_metadata = custom_stations.get_station_metadata(self.teleporter_name)
+        dropoff_metadata = custom_stations.get_station_metadata(settings.drop_off)
+
+        teleporter.teleport_not_default(pego_metadata)
+        pego.pego_pickup(pego_metadata)
+        if template.check_template("crystal_in_hotbar",0.7):
+            open_crystals_metadata = custom_stations.get_station_metadata(settings.open_crystals)
+            teleporter.teleport_not_default(open_crystals_metadata)  # teleport to open crystals station
+            time.sleep(0.8)  # give HUD/hotbar a moment to load after TP
+            deposit.open_crystals()
+            time.sleep(0.2)
+            deposit.dedi_deposit_alt(settings.height_ele)
+            time.sleep(0.2)
+            utils.zero()
+            utils.set_yaw(open_crystals_metadata.yaw)
+            time.sleep(0.2)
+            deposit.vaults(open_crystals_metadata)
+            time.sleep(0.2)
+            teleporter.teleport_not_default(dropoff_metadata)
+            time.sleep(0.5)
+            deposit.deposit_all(dropoff_metadata)
+            time.sleep(0.2)
+
+        else:
+            logs.logger.info(f"bot has no crystals in hotbar we are skipping the deposit step")
+
+    def get_priority_level(self):
+        return 2 # highest prio level as we cant have these get capped 
 
     def get_requeue_delay(self):
-        # If a task has an "initial_delay" it is only applied the first time
-        # the task is queued; after that, we fall back to .delay.
-        return self.delay
-
-    def is_one_shot(self):
-        return self.one_shot
-
-
-# --------------------------------------------------------------------------------------
-# Gacha
-# --------------------------------------------------------------------------------------
-class gacha_station(base_task):
-    def __init__(self, name, teleporter_name, delay=0, initial_delay=0):
-        super().__init__()
-        self.name = name
-        self.teleporter_name = teleporter_name
-        self.delay = float(delay or 0)
-        self.initial_delay = float(initial_delay or 0)
-        self.one_shot = False
-
-    def execute(self):
-        player_state.check_state()
-
-        if not getattr(settings, "gacha_enabled", True):
-            logs.logger.info("[Gacha] Disabled in settings; skipping.")
-            return
-
-        meta = custom_stations.get_station_metadata(self.teleporter_name)
-        logs.logger.info(f"[Gacha] Teleport -> Station: {self.teleporter_name}")
-        teleporter.teleport_not_default(meta)
-        time.sleep(0.5 * getattr(settings, "lag_offset", 1.0))
-
-        # Align camera to station-facing yaw/pitch baseline
-        utils.pitch_zero()
-        utils.set_yaw(meta.yaw)
-
-        # Run gacha logic (existing behavior)
-        gacha.gacha_station(meta)
-
-        # Restore yaw/pitch
-        utils.pitch_zero()
-        utils.set_yaw(meta.yaw)
-
-    def get_priority_level(self):
-        return 2
-
-
-# --------------------------------------------------------------------------------------
-# Pego
-# --------------------------------------------------------------------------------------
-class pego_station(base_task):
-    def __init__(self, name, teleporter_name, delay=0, initial_delay=0):
-        super().__init__()
-        self.name = name
-        self.teleporter_name = teleporter_name
-        self.delay = float(delay or 0)
-        self.initial_delay = float(initial_delay or 0)
-        self.one_shot = False
-
-    def execute(self):
-        player_state.check_state()
-
-        if not getattr(settings, "pego_enabled", True):
-            logs.logger.info("[Pego] Disabled in settings; skipping.")
-            return
-
-        meta = custom_stations.get_station_metadata(self.teleporter_name)
-        logs.logger.info(f"[Pego] Teleport -> Station: {self.teleporter_name}")
-        teleporter.teleport_not_default(meta)
-        time.sleep(0.5 * getattr(settings, "lag_offset", 1.0))
-
-        utils.pitch_zero()
-        utils.set_yaw(meta.yaw)
-
-        pego.pego_station(meta)
-
-        utils.pitch_zero()
-        utils.set_yaw(meta.yaw)
-
-    def get_priority_level(self):
-        return 2
-
-
-# --------------------------------------------------------------------------------------
-# Iguana (if applicable)
-# --------------------------------------------------------------------------------------
-class iguanadon_station(base_task):
-    def __init__(self, name, teleporter_name, delay=0, initial_delay=0):
-        super().__init__()
-        self.name = name
-        self.teleporter_name = teleporter_name
-        self.delay = float(delay or 0)
-        self.initial_delay = float(initial_delay or 0)
-        self.one_shot = False
-
-    def execute(self):
-        player_state.check_state()
-
-        if not getattr(settings, "iguanadon_enabled", False):
-            logs.logger.info("[Iguanadon] Disabled in settings; skipping.")
-            return
-
-        meta = custom_stations.get_station_metadata(self.teleporter_name)
-        logs.logger.info(f"[Iguanadon] Teleport -> Station: {self.teleporter_name}")
-        teleporter.teleport_not_default(meta)
-        time.sleep(0.5 * getattr(settings, "lag_offset", 1.0))
-
-        utils.pitch_zero()
-        utils.set_yaw(meta.yaw)
-
-        iguanadon.iguanadon_station(meta)
-
-        utils.pitch_zero()
-        utils.set_yaw(meta.yaw)
-
-    def get_priority_level(self):
-        return 2
-
-
-# --------------------------------------------------------------------------------------
-# Sparkpowder (Megalab)
-# --------------------------------------------------------------------------------------
+        return self.delay # delay cannot be constant as stations can cover different amounts of space each |||| 2 stacks of berries to 1 crystal 4 gachas to 1 pego
+    
+    
 class sparkpowder_station(base_task):
+
     def __init__(self, name, teleporter_name, delay=0, deposit_height=3, initial_delay=0):
         super().__init__()
         self.name = name
@@ -225,9 +191,7 @@ class sparkpowder_station(base_task):
                     inventory.close()
                     raise RuntimeError("Unable to open Megalab inventory (template not detected)")
 
-                ok = megalab_crafting.run_sparkpowder_cycle(
-                    craft_seconds=getattr(settings, "sparkpowder_craft_seconds", 2.0)
-                )
+                ok = megalab_crafting.run_sparkpowder_cycle(craft_seconds=getattr(settings, "sparkpowder_craft_seconds", 2.0))
                 inventory.close()
                 time.sleep(0.25 * lag)
 
@@ -278,19 +242,27 @@ class sparkpowder_station(base_task):
 
         logs.logger.error(f"[Sparkpowder] Failed after {attempts_max} attempts.")
 
+
     def get_priority_level(self):
+        # After pego (2), before gacha (4)
         return 3
 
+    def get_requeue_delay(self):
+        # Mirror pego: re-queue interval comes from this station's delay (json_files/sparkpowder.json).
+        if self.delay and self.delay > 0:
+            return self.delay
+        return getattr(settings, "sparkpowder_requeue_delay", 1800)
 
-# --------------------------------------------------------------------------------------
-# Gunpowder (Megalab)
-# --------------------------------------------------------------------------------------
+
 class gunpowder_station(base_task):
+
     def __init__(self, name, teleporter_name, delay=0, deposit_height=3, initial_delay=0):
         super().__init__()
         self.name = name
         self.teleporter_name = teleporter_name
 
+        # "delay" is the re-queue interval (mirrors pego behavior).
+        # "initial_delay" is an optional one-time startup offset (defaults to 0 so it queues immediately).
         self.delay = float(delay or 0)
         self.initial_delay = float(initial_delay or 0)
 
@@ -340,9 +312,7 @@ class gunpowder_station(base_task):
                     inventory.close()
                     raise RuntimeError("Unable to open Megalab inventory (template not detected)")
 
-                ok = megalab_crafting.run_gunpowder_cycle(
-                    craft_seconds=getattr(settings, "gunpowder_craft_seconds", 2.0)
-                )
+                ok = megalab_crafting.run_gunpowder_cycle(craft_seconds=getattr(settings, "gunpowder_craft_seconds", 2.0))
                 inventory.close()
                 time.sleep(0.25 * lag)
 
@@ -402,20 +372,30 @@ class gunpowder_station(base_task):
 
         logs.logger.error(f"[Gunpowder] Failed after {attempts_max} attempts.")
 
+
     def get_priority_level(self):
+        # Same priority tier as sparkpowder (between pego and gacha)
         return 3
 
+    def get_requeue_delay(self):
+        # Mirror pego: re-queue interval comes from this station's delay (json_files/gunpowder.json).
+        if self.delay and self.delay > 0:
+            return self.delay
+        return getattr(settings, "gunpowder_requeue_delay", 1800)
 
-# --------------------------------------------------------------------------------------
-# Decay Prevention
-# --------------------------------------------------------------------------------------
+
 class decay_prevention_station(base_task):
+
     def __init__(self, name, teleporter_name, delay=0, initial_delay=0):
         super().__init__()
         self.name = name
         self.teleporter_name = teleporter_name
+
+        # "delay" is the re-queue interval (mirrors pego behavior).
+        # "initial_delay" is an optional one-time startup offset (defaults to 0 so it queues immediately).
         self.delay = float(delay or 0)
         self.initial_delay = float(initial_delay or 0)
+
         self.one_shot = False
 
     def execute(self):
@@ -482,45 +462,87 @@ class decay_prevention_station(base_task):
 
         logs.logger.error(f"[DecayPrevention] Failed after {attempts_max} attempts.")
 
+
     def get_priority_level(self):
-        return 4
+        # Run alongside crafting (3) so it won't be starved by large gacha queues.
+        # Pego (2) still stays above it.
+        return 3
+
+    def get_requeue_delay(self):
+        if self.delay and self.delay > 0:
+            return self.delay
+        return getattr(settings, "decay_prevention_requeue_delay", 21600)
 
 
-# --------------------------------------------------------------------------------------
-# Render Station (existing)
-# --------------------------------------------------------------------------------------
 class render_station(base_task):
-    def __init__(self, name, teleporter_name, delay=0, initial_delay=0):
+
+    def __init__(self):
+        super().__init__()
+        self.name = settings.bed_spawn
+        
+    def execute(self):
+        global berry_station 
+        if bot.render.render_flag == False: # ! changed this and deleted a statement. review orginal if not broken.
+            logs.logger.debug(f"render flag:{bot.render.render_flag} we are trying to get into the pod now")
+            player_state.reset_state()
+            teleporter.teleport_not_default(settings.bed_spawn)
+            time.sleep(0.5)
+            bot.render.enter_tekpod()
+            player_inventory.open()
+            player_inventory.drop_all_inv()
+            player_inventory.close()
+            tribelog.open()
+            time.sleep(0.5)
+    def get_priority_level(self):
+        return 8
+
+    def get_requeue_delay(self):
+        return 90 # after triggered we will wait for 60 seconds reduces the amount of cpu usage 
+    
+class snail_pheonix(base_task):
+    def __init__(self,name,teleporter_name,direction,depo):
         super().__init__()
         self.name = name
         self.teleporter_name = teleporter_name
-        self.delay = float(delay or 0)
-        self.initial_delay = float(initial_delay or 0)
-        self.one_shot = False
+        self.direction = direction
+        self.depo_tp = depo
 
     def execute(self):
+        gacha_metadata = custom_stations.get_station_metadata(self.teleporter_name)
+        gacha_metadata.side = self.direction
+
         player_state.check_state()
-
-        if not getattr(settings, "render_enabled", False):
-            logs.logger.info("[Render] Disabled in settings; skipping.")
-            return
-
-        meta = custom_stations.get_station_metadata(self.teleporter_name)
-        logs.logger.info(f"[Render] Teleport -> Station: {self.teleporter_name}")
-        teleporter.teleport_not_default(meta)
-
-        time.sleep(float(getattr(settings, "render_post_tp_delay", 10.0) or 10.0) * getattr(settings, "lag_offset", 1.0))
-
-        # Render task is game-specific; keep existing behavior if present
-        # (The watchdog task manages “render-only” stabilization)
-        try:
-            from bot import render_logic
-            render_logic.run_render(meta)
-        except Exception:
-            logs.logger.exception("[Render] render_logic failed")
-
-        utils.pitch_zero()
-        utils.set_yaw(meta.yaw)
-
+        teleporter.teleport_not_default(gacha_metadata)
+        time.sleep(0.2)
+        gacha.collection(gacha_metadata)
+        time.sleep(0.2)
+        teleporter.teleport_not_default(self.depo_tp)
+        time.sleep(0.2)
+        deposit.dedi_deposit(settings.height_ele)
+        time.sleep(0.2)
+        
     def get_priority_level(self):
-        return 3
+        # Shifted to remain after normal gachas.
+        return 5
+    def get_requeue_delay(self):
+        return 13200
+
+class pause(base_task):
+    def __init__(self,time):
+        super().__init__()
+        self.name = "pause"
+        self.time = time
+    def execute(self):
+        player_state.check_state()
+        teleporter.teleport_not_default(settings.bed_spawn)
+        time.sleep(0.2)
+        bot.render.enter_tekpod()
+        tribelog.open()
+        time.sleep(self.time)
+        bot.render.leave_tekpod()
+        
+    def get_priority_level(self):
+        return 1
+
+    def get_requeue_delay(self):
+        return 0  
