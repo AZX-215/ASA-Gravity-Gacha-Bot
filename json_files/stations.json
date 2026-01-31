@@ -195,7 +195,15 @@
         "ypos": 0,
         "zpos": 0,
         "yaw": -93.76
+    },
+    {
+        "name": "ALTRENDER",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -141.27
     }
+
 
 ]
 
