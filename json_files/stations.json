@@ -1,4 +1,5 @@
 [
+    
     {
         "name": "SN MEGALAB #001.",
         "xpos": 0,
@@ -54,7 +55,155 @@
         "ypos": 0,
         "zpos": 0,
         "yaw": 86.24
+    },
+    {
+        "name": "RENDER_STATION_1",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_2",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_3",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_4",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_5",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_6",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_7",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_8",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_9",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_10",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_11",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_12",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_13",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_14",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_15",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_16",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_17",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_18",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_19",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "RENDER_STATION_20",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -93.76
+    },
+    {
+        "name": "ALTRENDER",
+        "xpos": 0,
+        "ypos": 0,
+        "zpos": 0,
+        "yaw": -141.27
     }
 
 
 ]
+
