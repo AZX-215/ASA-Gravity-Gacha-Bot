@@ -29,7 +29,7 @@ def open():
             # check state of char which should close out of any windows we are in or rejoin the game
             utils.pitch_zero() # reseting the chars pitch/yaw
             utils.turn_down(80)
-            time.sleep(0.2*settings.lag_offset) 
+            time.sleep(0.5*settings.lag_offset) 
         else:
             logs.logger.debug(f"teleporter opened")   
 
@@ -43,7 +43,7 @@ def close():
         attempts += 1
         logs.logger.debug(f"trying to close the teleporter {attempts} / {ASA.config.teleporter_close_attempts}")
         windows.click(variables.get_pixel_loc("back_button_tp_x"),variables.get_pixel_loc("back_button_tp_y"))
-        time.sleep(0.2*settings.lag_offset)
+        time.sleep(0.5*settings.lag_offset)
 
         if attempts >= ASA.config.teleporter_close_attempts:
             logs.logger.error(f"unable to close the teleporter after {ASA.config.teleporter_close_attempts} attempts")
@@ -57,11 +57,11 @@ def teleport_not_default(arg):
         stationdata = ASA.stations.custom_stations.get_station_metadata(arg)
 
     teleporter_name = stationdata.name
-    time.sleep(0.3*settings.lag_offset)
+    time.sleep(0.5*settings.lag_offset)
     utils.turn_down(80)
-    time.sleep(0.3*settings.lag_offset)
+    time.sleep(0.5*settings.lag_offset)
     open() 
-    time.sleep(0.2*settings.lag_offset) #waiting for teleport_icon to populate on the screen before we check
+    time.sleep(0.5*settings.lag_offset) #waiting for teleport_icon to populate on the screen before we check
     if is_open():
         if template.teleport_icon(0.55):
             start = time.time()
@@ -72,17 +72,17 @@ def teleport_not_default(arg):
         windows.click(variables.get_pixel_loc("search_bar_bed_alive_x"),variables.get_pixel_loc("search_bar_bed_y")) #im lazy this is the same position as the teleporter search bar
         utils.ctrl_a()
         utils.write(teleporter_name)
-        time.sleep(0.2*settings.lag_offset)
+        time.sleep(0.5*settings.lag_offset)
         windows.click(variables.get_pixel_loc("first_bed_slot_x"),variables.get_pixel_loc("first_bed_slot_y"))
-        time.sleep(0.3*settings.lag_offset) #preventing the orange text from the starting teleport screen messing things up
+        time.sleep(0.5*settings.lag_offset) #preventing the orange text from the starting teleport screen messing things up
         if not template.template_await_true(template.check_teleporter_orange,3):
             logs.logger.warning(f"orange pixel for teleporter ready not found likely already on the tp we are just exiting the tp treating it as the tp we should be on")
             close() # closing out as either the TP couldnt be found however we still want to change to the station yaw so we still continue
 
         else:
-            time.sleep(0.2*settings.lag_offset)
+            time.sleep(0.5*settings.lag_offset)
             windows.click(variables.get_pixel_loc("first_bed_slot_x"),variables.get_pixel_loc("first_bed_slot_y"))
-            time.sleep(0.2*settings.lag_offset)
+            time.sleep(0.5*settings.lag_offset)
             windows.click(variables.get_pixel_loc("spawn_button_x"),variables.get_pixel_loc("spawn_button_y"))
 
             if template.template_await_true(template.white_flash,2):
@@ -94,9 +94,9 @@ def teleport_not_default(arg):
         if settings.singleplayer: # single player for some reason changes view angles when you tp 
             utils.current_pitch = 0
             utils.turn_down(80)
-            time.sleep(0.2)
+            time.sleep(0.5)
         utils.turn_up(80)
-        time.sleep(0.2) 
+        time.sleep(0.5) 
         utils.set_yaw(stationdata.yaw)
         
             

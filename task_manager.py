@@ -261,10 +261,28 @@ class task_scheduler(metaclass=SingletonMeta):
 
         # Toggle gate: skip tasks that are disabled (and do not re-queue them)
         if not self._is_task_enabled(task):
+            # Still attach context so the skip is attributable in Discord alerts/history
+            try:
+                logs.set_task_context(getattr(task, "name", "-"))
+            except Exception:
+                pass
+
             logs.logger.info(f"Skipping disabled task: {getattr(task, 'name', '<unnamed>')}")
+
+            try:
+                logs.clear_task_context()
+            except Exception:
+                pass
+
             self._discard_from_tracking(task)
             self.prev_task_name = getattr(task, "name", "")
             return
+
+        # Attach task context to all logs emitted during this execution.
+        try:
+            logs.set_task_context(getattr(task, "name", "-"))
+        except Exception:
+            pass
 
         if getattr(task, "name", "") != self.prev_task_name:
             logs.logger.info(f"Executing task: {getattr(task, 'name', '<unnamed>')}")
@@ -273,6 +291,11 @@ class task_scheduler(metaclass=SingletonMeta):
             task.execute()
         except Exception as e:
             logs.logger.exception(f"Task {getattr(task, 'name', '<unnamed>')} raised: {e}")
+        finally:
+            try:
+                logs.clear_task_context()
+            except Exception:
+                pass
 
         now = time.time()
 
