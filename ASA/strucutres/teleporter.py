@@ -69,34 +69,85 @@ def teleport_not_default(arg):
             template.template_await_true(template.teleport_icon,15,0.55)
             logs.logger.debug(f"time taken for teleporter icon to appear : {time.time() - start}")
 
-        windows.click(variables.get_pixel_loc("search_bar_bed_alive_x"),variables.get_pixel_loc("search_bar_bed_y")) #im lazy this is the same position as the teleporter search bar
-        utils.ctrl_a()
-        utils.write(teleporter_name)
-        time.sleep(0.5*settings.lag_offset)
-        windows.click(variables.get_pixel_loc("first_bed_slot_x"),variables.get_pixel_loc("first_bed_slot_y"))
-        time.sleep(0.5*settings.lag_offset) #preventing the orange text from the starting teleport screen messing things up
-        if not template.template_await_true(template.check_teleporter_orange,3):
-            # Retry once: small UI timing / selection hiccups are common, especially on high res.
+        # Focus search, type name, and confirm with ENTER.
+        def _type_search(name: str):
+            windows.click(variables.get_pixel_loc("search_bar_bed_alive_x"), variables.get_pixel_loc("search_bar_bed_y"))
+            time.sleep(0.10*settings.lag_offset)
+            utils.ctrl_a()
+            utils.write(name)
+            time.sleep(0.10*settings.lag_offset)
+            utils.press_key("enter")
+
+        _type_search(teleporter_name)
+        time.sleep(0.6*settings.lag_offset)
+
+        # Robust selection + READY confirmation.
+        # We prefer READY confirmation, but we do not hard-fail if it isn't detected; instead we attempt the teleport
+        # and verify via white-flash / UI transition.
+        ready = False
+        for sel_attempt in range(1, 4):
+            windows.click(variables.get_pixel_loc("first_bed_slot_x"), variables.get_pixel_loc("first_bed_slot_y"))
+            time.sleep(0.35*settings.lag_offset)
+            if template.template_await_true(template.check_teleporter_orange, 1.5):
+                ready = True
+                break
+
+            # Recovery nudges
+            if sel_attempt == 1:
+                # Sometimes the list doesn't apply until Enter or the click doesn't register.
+                utils.press_key("enter")
+                time.sleep(0.25*settings.lag_offset)
+            elif sel_attempt == 2:
+                # Re-type search once to ensure we're on the right entry.
+                _type_search(teleporter_name)
+                time.sleep(0.6*settings.lag_offset)
+
+        if not ready:
+            logs.logger.warning(
+                f"teleporter READY not confirmed for '{teleporter_name}'. "
+                f"Attempting teleport anyway and verifying via UI transition."
+            )
+
+        # Attempt teleport up to 2 times and verify it actually fired.
+        teleported = False
+        for tp_attempt in range(1, 3):
+            # Ensure selection is on first row before clicking spawn.
+            windows.click(variables.get_pixel_loc("first_bed_slot_x"), variables.get_pixel_loc("first_bed_slot_y"))
             time.sleep(0.25*settings.lag_offset)
-            windows.click(variables.get_pixel_loc("first_bed_slot_x"),variables.get_pixel_loc("first_bed_slot_y"))
+            windows.click(variables.get_pixel_loc("spawn_button_x"), variables.get_pixel_loc("spawn_button_y"))
+
+            if template.template_await_true(template.white_flash, 2):
+                logs.logger.debug("white flash detected; waiting for it to clear")
+                template.template_await_false(template.white_flash, 5)
+                teleported = True
+                break
+
+            # If the teleporter UI closed without a flash, still treat as success.
+            if template.template_await_false(template.check_template, 1.5, "teleporter_title", 0.7) == False:
+                teleported = True
+                break
+
+            logs.logger.debug(f"teleport did not trigger (attempt {tp_attempt}/2); retrying")
             time.sleep(0.5*settings.lag_offset)
 
-        if not template.template_await_true(template.check_teleporter_orange,3):
-            logs.logger.warning(
-                f"teleporter entry not detected as READY for '{teleporter_name}'. "
-                f"Assuming we are already there (or UI failed to highlight) and exiting teleporter UI."
-            )
+        if not teleported:
+            logs.logger.error(f"teleport failed to trigger for '{teleporter_name}'. Capturing debug images and exiting teleporter UI.")
+            try:
+                template.debug_capture(
+                    "teleporter_failed",
+                    extra_regions={
+                        "teleporter_title": template.roi_regions["teleporter_title"],
+                        "teleporter_icon": template.roi_regions["teleporter_icon"],
+                        "orange": template.roi_regions["orange"],
+                        "ready_clicked_bed": template.roi_regions["ready_clicked_bed"],
+                    },
+                )
+            except Exception:
+                pass
             close()
         else:
-            time.sleep(0.5*settings.lag_offset)
-            windows.click(variables.get_pixel_loc("first_bed_slot_x"),variables.get_pixel_loc("first_bed_slot_y"))
-            time.sleep(0.5*settings.lag_offset)
-            windows.click(variables.get_pixel_loc("spawn_button_x"),variables.get_pixel_loc("spawn_button_y"))
-
-            if template.template_await_true(template.white_flash,2):
-                logs.logger.debug(f"white flash detected waiting for up too 5 seconds")
-                template.template_await_false(template.white_flash,5)
-            ASA.player.tribelog.open() 
+            # A quick tribelog open/close is used elsewhere in the bot to stabilize post-teleport UI state.
+            ASA.player.tribelog.open()
             ASA.player.tribelog.close()
         time.sleep(0.5*settings.lag_offset)
         if settings.singleplayer: # single player for some reason changes view angles when you tp 

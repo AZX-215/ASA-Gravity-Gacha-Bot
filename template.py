@@ -6,6 +6,8 @@ import settings
 import time
 import ASA.player.console
 import json
+import os
+from datetime import datetime
 
 
 def _grab_region(region: dict):
@@ -281,6 +283,38 @@ def check_teleporter_orange():
     ok = hits >= min_hits
     logs.logger.template(f"teleporter ready (probe) {ok} hits={hits} min_hits={min_hits}")
     return ok
+
+
+def debug_capture(tag: str, extra_regions: dict | None = None):
+    """Write a full client screenshot + optional named ROIs to debug_captures/.
+
+    Best-effort: never raises.
+    """
+    try:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        out_dir = os.path.join(os.getcwd(), "debug_captures")
+        os.makedirs(out_dir, exist_ok=True)
+
+        # Full client capture
+        try:
+            roi_full = screen.get_screen_roi(0, 0, screen.BASE_WIDTH, screen.BASE_HEIGHT)
+        except Exception:
+            import mss
+            with mss.mss() as sct:
+                roi_full = np.array(sct.grab(screen.mon))
+
+        cv2.imwrite(os.path.join(out_dir, f"{ts}_{tag}_full.png"), roi_full)
+
+        # Optional ROIs
+        if extra_regions:
+            for name, region in extra_regions.items():
+                try:
+                    roi = _grab_region(region)
+                    cv2.imwrite(os.path.join(out_dir, f"{ts}_{tag}_{name}.png"), roi)
+                except Exception:
+                    pass
+    except Exception:
+        return
 
 
 def white_flash():
