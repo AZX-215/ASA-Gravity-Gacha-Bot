@@ -69,7 +69,10 @@ roi_regions = {
     "player_stats": {"start_x":1120, "start_y":240 ,"width":300 ,"height":900},
     "show_buff":{"start_x":1200, "start_y":1150 ,"width":200 ,"height":50},
     "snow_owl_pellet":{"start_x":200, "start_y":150 ,"width":600 ,"height":600},
-    "orange":{"start_x":705, "start_y":290 ,"width":1 ,"height":1},
+    # Teleporter READY highlight probe region (authored at 2560x1440).
+    # Centered around the original single-pixel probe at (705, 290) but expanded
+    # to tolerate scaling rounding, AA, HDR/gamma variance.
+    "orange":{"start_x":693, "start_y":278 ,"width":24 ,"height":24},
     "chem_bench":{"start_x":1100, "start_y":245 ,"width":355 ,"height":70},
     "megalab": {"start_x":1100, "start_y":245 ,"width":355 ,"height":70},
     "indi_forge":{"start_x":1100, "start_y":245 ,"width":355 ,"height":70},
@@ -273,8 +276,10 @@ def check_teleporter_orange():
     mask = cv2.inRange(hsv, lower, upper)
 
     hits = int(np.count_nonzero(mask))
-    ok = hits >= 8  # require a handful of pixels
-    logs.logger.template(f"teleporter ready (probe) {ok} hits={hits}")
+    # Require a small number of orange-ish pixels; scale minimum by patch size.
+    min_hits = max(6, int((roi.shape[0] * roi.shape[1]) * 0.01))
+    ok = hits >= min_hits
+    logs.logger.template(f"teleporter ready (probe) {ok} hits={hits} min_hits={min_hits}")
     return ok
 
 
