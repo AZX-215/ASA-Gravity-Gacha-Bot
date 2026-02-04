@@ -10,9 +10,15 @@ buttons = {
     "back_x":1280,"back_y":1280
 }
 
-def get_pixel_loc(location):
-    if screen.screen_resolution == 1080:
-        return round(buttons.get(location) * 0.75)
+def get_pixel_loc(location: str):
+    value = buttons.get(location)
+    if value is None:
+        return None
+    if location.endswith("_x"):
+        return screen.map_x(value)
+    if location.endswith("_y"):
+        return screen.map_y(value)
+    return value
     return buttons.get(location)
     
 def is_open():
