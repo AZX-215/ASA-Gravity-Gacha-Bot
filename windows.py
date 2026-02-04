@@ -71,14 +71,11 @@ ctypes.windll.user32.PostMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ct
 ctypes.windll.user32.PostMessageW.restype = ctypes.c_int
 
 def move_mouse(x, y):
-    """Move the real cursor to a point inside the ARK client area.
 
-    `x`/`y` are expected to be **client-area** coordinates (not desktop).
-    This uses SetCursorPos with the client-area top-left offset from screen.py,
-    so it remains correct for ultrawide, 4K/5K, windowed/borderless, and multi-monitor setups.
-    """
-    dx, dy = screen.client_to_desktop(int(x), int(y))
-    ctypes.windll.user32.SetCursorPos(dx, dy)
+    scaled_x = int(x * 65535 / screen.mon["width"])
+    scaled_y = int(y * 65535 / screen.mon["height"])
+
+    ctypes.windll.user32.mouse_event(MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE, scaled_x, scaled_y, 0, 0)
 
 def click(x, y):
     lparam = (y << 16) | x

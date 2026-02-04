@@ -45,19 +45,10 @@ def spawn_in(bed_name:str):
         time.sleep(0.2*settings.lag_offset)
         windows.click(variables.get_pixel_loc("first_bed_slot_x"),variables.get_pixel_loc("first_bed_slot_y"))
 
-        # Wait for the selected bed row to show READY state.
-        # Retry once to avoid false negatives due to timing / scaling.
-        if not template.template_await_true(template.check_teleporter_orange,3):
-            time.sleep(0.25*settings.lag_offset)
-            windows.click(variables.get_pixel_loc("first_bed_slot_x"),variables.get_pixel_loc("first_bed_slot_y"))
-            time.sleep(0.5*settings.lag_offset)
-
-        if not template.template_await_true(template.check_teleporter_orange,3):
-            logs.logger.error(
-                f"bed '{bed_name}' was not detected as READY (or could not be found). Exiting bed screen now"
-            )
+        if not template.template_await_true(template.check_teleporter_orange,3): # waiting for the bed to appear as ready to spawn in
+            logs.logger.error(f"the bed char tried spawning on is not in the ready state or cant be found exiting out of bed screen now")
             close()
-            return
+            return    # no need to continue with this therefore we should just leave func     
                
         windows.click(variables.get_pixel_loc("spawn_button_x"),variables.get_pixel_loc("spawn_button_y"))
 

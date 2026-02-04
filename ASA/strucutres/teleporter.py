@@ -63,10 +63,10 @@ def teleport_not_default(arg):
     open() 
     time.sleep(0.5*settings.lag_offset) #waiting for teleport_icon to populate on the screen before we check
     if is_open():
-        if not template.teleport_icon(0.55):
+        if template.teleport_icon(0.55):
             start = time.time()
-            logs.logger.debug("teleport icons are not on the teleport screen; waiting up to 15 seconds for them to appear")
-            template.template_await_true(template.teleport_icon,15,0.55)
+            logs.logger.debug(f"teleport icons are not on the teleport screen waiting for up to 10 seconds for them to appear")
+            template.template_await_true(template.teleport_icon,10,0.55)
             logs.logger.debug(f"time taken for teleporter icon to appear : {time.time() - start}")
 
         windows.click(variables.get_pixel_loc("search_bar_bed_alive_x"),variables.get_pixel_loc("search_bar_bed_y")) #im lazy this is the same position as the teleporter search bar
@@ -76,17 +76,9 @@ def teleport_not_default(arg):
         windows.click(variables.get_pixel_loc("first_bed_slot_x"),variables.get_pixel_loc("first_bed_slot_y"))
         time.sleep(0.5*settings.lag_offset) #preventing the orange text from the starting teleport screen messing things up
         if not template.template_await_true(template.check_teleporter_orange,3):
-            # Retry once: small UI timing / selection hiccups are common, especially on high res.
-            time.sleep(0.25*settings.lag_offset)
-            windows.click(variables.get_pixel_loc("first_bed_slot_x"),variables.get_pixel_loc("first_bed_slot_y"))
-            time.sleep(0.5*settings.lag_offset)
+            logs.logger.warning(f"orange pixel for teleporter ready not found likely already on the tp we are just exiting the tp treating it as the tp we should be on")
+            close() # closing out as either the TP couldnt be found however we still want to change to the station yaw so we still continue
 
-        if not template.template_await_true(template.check_teleporter_orange,3):
-            logs.logger.warning(
-                f"teleporter entry not detected as READY for '{teleporter_name}'. "
-                f"Assuming we are already there (or UI failed to highlight) and exiting teleporter UI."
-            )
-            close()
         else:
             time.sleep(0.5*settings.lag_offset)
             windows.click(variables.get_pixel_loc("first_bed_slot_x"),variables.get_pixel_loc("first_bed_slot_y"))
