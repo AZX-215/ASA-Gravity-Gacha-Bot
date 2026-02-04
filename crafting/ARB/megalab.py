@@ -19,12 +19,11 @@ def is_open_megalab() -> bool:
 
 def _click_first_slot():
     """Clicks the first (top-left) slot in the structure-side grid."""
-    x = ASA.strucutres.inventory.inv_slots["x"] + 30
-    y = ASA.strucutres.inventory.inv_slots["y"] + 30
+    base_x = ASA.strucutres.inventory.inv_slots["x"] + 30
+    base_y = ASA.strucutres.inventory.inv_slots["y"] + 30
 
-    if screen.screen_resolution == 1080:
-        x = x * 0.75
-        y = y * 0.75
+    x = screen.map_x(base_x)
+    y = screen.map_y(base_y)
 
     windows.move_mouse(x, y)
     windows.click(x, y)

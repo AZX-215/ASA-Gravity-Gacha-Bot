@@ -102,14 +102,15 @@ def select_object_crafting_tab():
 def popcorn_top_row():
     if is_open():
         for count in range(6):
-            time.sleep(0.3*settings.lag_offset)
-            x = inv_slots["x"] + (count *inv_slots["distance"]) + 30 # x pos = startx + distancebetweenslots * count 
-            y = inv_slots["y"] + 30
-            if screen.screen_resolution == 1080:
-                windows.move_mouse(x * 0.75,y * 0.75)
-            else:
-                windows.move_mouse(x,y)
-            time.sleep(0.3*settings.lag_offset)
+            time.sleep(0.3 * settings.lag_offset)
+            base_x = inv_slots["x"] + (count * inv_slots["distance"]) + 30  # authored at 2560x1440
+            base_y = inv_slots["y"] + 30
+
+            x = screen.map_x(base_x)
+            y = screen.map_y(base_y)
+
+            windows.move_mouse(x, y)
+            time.sleep(0.3 * settings.lag_offset)
             utils.press_key("DropItem")
 
  
