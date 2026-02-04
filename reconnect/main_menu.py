@@ -12,15 +12,10 @@ buttons = {
 }
 
 
-def get_pixel_loc(location: str):
-    value = buttons.get(location)
-    if value is None:
-        return None
-    if location.endswith("_x"):
-        return screen.map_x(value)
-    if location.endswith("_y"):
-        return screen.map_y(value)
-    return value
+def get_pixel_loc( location):
+    if screen.screen_resolution == 1080:
+        return round(buttons.get(location) * 0.75)
+    return buttons.get(location)
 
 def is_open(): # pretty much always true while in this screen 
     return recon_utils.check_template_no_bounds("join_last_session",0.7)
