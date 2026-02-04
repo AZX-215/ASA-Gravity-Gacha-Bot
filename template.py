@@ -239,43 +239,44 @@ def check_buffs(buff: str, threshold: float) -> bool:
 
 
 def check_teleporter_orange():
-    """Return True if the currently selected bed/teleporter entry is in a "Ready" state.
+    """Return True if the currently selected bed/teleporter entry is in a 'Ready' state.
 
-    The old implementation sampled a single pixel which is very brittle across:
-    - different resolutions (1080/1440/4K/5K)
-    - ultrawide offsets
-    - UI scale / AA / HDR gamma
+    The original bot used a single HSV pixel probe (very sensitive but brittle).
+    The v4 patch used a large-column HSV % which can miss the highlight when it's small.
 
-    We now use two signals:
-      1) Template match against "ready_clicked_bed" highlight.
-      2) Fallback HSV-mask over the same column and require a small % of orange pixels.
+    This version combines:
+      1) Template match against 'ready_clicked_bed' (fast and reliable when the template is accurate)
+      2) A small HSV probe patch around the original orange pixel location (705,290 at 1440 baseline)
     """
 
-    # Primary signal: template match (resolution-aware via _read_icon())
+    # 1) Template match signal (resolution-aware via _read_icon()).
     try:
         if check_template("ready_clicked_bed", 0.60):
             logs.logger.template("teleporter ready (template)")
             return True
     except Exception:
-        # Fall back to color mask.
         pass
 
-    region = roi_regions["ready_clicked_bed"]
-    roi = _grab_region(region)
+    # 2) Orange probe patch (restores the intent of the original single-pixel check,
+    # but uses a small area to tolerate rounding/AA/HDR).
+    region = roi_regions.get("orange")
+    if not region:
+        return False
 
+    roi = _grab_region(region)
     hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-    # Broad orange range (ARK UI highlight can vary by gamma/HDR)
-    lower = np.array([5, 80, 80])
-    upper = np.array([35, 255, 255])
+
+    # Broad orange/yellow range; highlight color varies by gamma/HDR.
+    # Hue: 0-55, Sat: 60+, Val: 60+
+    lower = np.array([0, 60, 60])
+    upper = np.array([55, 255, 255])
     mask = cv2.inRange(hsv, lower, upper)
 
-    orange_pixels = int(np.count_nonzero(mask))
-    total_pixels = int(mask.size)
-    pct = (orange_pixels / total_pixels) * 100.0 if total_pixels else 0.0
-    ok = pct >= 0.15
-
-    logs.logger.template(f"teleporter ready (hsv) {ok} orange_pct={pct:.3f}")
+    hits = int(np.count_nonzero(mask))
+    ok = hits >= 8  # require a handful of pixels
+    logs.logger.template(f"teleporter ready (probe) {ok} hits={hits}")
     return ok
+
 
 def white_flash():
     roi = screen.get_screen_roi(500,500,100,100)

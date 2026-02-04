@@ -63,10 +63,10 @@ def teleport_not_default(arg):
     open() 
     time.sleep(0.5*settings.lag_offset) #waiting for teleport_icon to populate on the screen before we check
     if is_open():
-        if template.teleport_icon(0.55):
+        if not template.teleport_icon(0.55):
             start = time.time()
-            logs.logger.debug(f"teleport icons are not on the teleport screen waiting for up to 10 seconds for them to appear")
-            template.template_await_true(template.teleport_icon,10,0.55)
+            logs.logger.debug("teleport icons are not on the teleport screen; waiting up to 15 seconds for them to appear")
+            template.template_await_true(template.teleport_icon,15,0.55)
             logs.logger.debug(f"time taken for teleporter icon to appear : {time.time() - start}")
 
         windows.click(variables.get_pixel_loc("search_bar_bed_alive_x"),variables.get_pixel_loc("search_bar_bed_y")) #im lazy this is the same position as the teleporter search bar
