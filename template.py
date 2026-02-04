@@ -239,16 +239,43 @@ def check_buffs(buff: str, threshold: float) -> bool:
 
 
 def check_teleporter_orange():
-    region = roi_regions["orange"]
+    """Return True if the currently selected bed/teleporter entry is in a "Ready" state.
+
+    The old implementation sampled a single pixel which is very brittle across:
+    - different resolutions (1080/1440/4K/5K)
+    - ultrawide offsets
+    - UI scale / AA / HDR gamma
+
+    We now use two signals:
+      1) Template match against "ready_clicked_bed" highlight.
+      2) Fallback HSV-mask over the same column and require a small % of orange pixels.
+    """
+
+    # Primary signal: template match (resolution-aware via _read_icon())
+    try:
+        if check_template("ready_clicked_bed", 0.60):
+            logs.logger.template("teleporter ready (template)")
+            return True
+    except Exception:
+        # Fall back to color mask.
+        pass
+
+    region = roi_regions["ready_clicked_bed"]
     roi = _grab_region(region)
 
-    lower_boundary = np.array([10,211,50])
-    upper_boundary = np.array([15,255,100])
+    hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+    # Broad orange range (ARK UI highlight can vary by gamma/HDR)
+    lower = np.array([5, 80, 80])
+    upper = np.array([35, 255, 255])
+    mask = cv2.inRange(hsv, lower, upper)
 
-    hsv = cv2.cvtColor(roi,cv2.COLOR_BGR2HSV)
-    pixel_hsv = hsv[0, 0]
-    logs.logger.template(f"check orange {np.all(pixel_hsv >= lower_boundary) and np.all(pixel_hsv <= upper_boundary)}")
-    return np.all(pixel_hsv >= lower_boundary) and np.all(pixel_hsv <= upper_boundary)
+    orange_pixels = int(np.count_nonzero(mask))
+    total_pixels = int(mask.size)
+    pct = (orange_pixels / total_pixels) * 100.0 if total_pixels else 0.0
+    ok = pct >= 0.15
+
+    logs.logger.template(f"teleporter ready (hsv) {ok} orange_pct={pct:.3f}")
+    return ok
 
 def white_flash():
     roi = screen.get_screen_roi(500,500,100,100)
