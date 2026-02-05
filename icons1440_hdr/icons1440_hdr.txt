@@ -1,0 +1,1 @@
+#Icons for 2560 x 1440 in 16:9 aspect ratio with HDR enabled.
