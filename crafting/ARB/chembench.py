@@ -26,14 +26,12 @@ def craft_gunpowder():
     if template.check_template("chem_bench",0.7):
         ASA.strucutres.inventory.search_in_object("gun")
         time.sleep(0.3*settings.lag_offset)
-        x = ASA.strucutres.inventory.inv_slots["x"]
-        y = ASA.strucutres.inventory.inv_slots["y"]
-        if screen.screen_resolution == 1080:
-            windows.move_mouse(x * 0.75,y * 0.75)
-            windows.click(x * 0.75,y * 0.75)
-        else:
-            windows.move_mouse(x,y)
-            windows.click(x,y)
+        base_x = ASA.strucutres.inventory.inv_slots["x"]
+        base_y = ASA.strucutres.inventory.inv_slots["y"]
+        x = screen.map_x(base_x)
+        y = screen.map_y(base_y)
+        windows.move_mouse(x, y)
+        windows.click(x, y)
         
         for count in range(15):
             utils.press_key("a")
@@ -51,14 +49,12 @@ def craft_sparkpowder():
     if template.check_template("chem_bench",0.7):
         ASA.strucutres.inventory.search_in_object("spark")
         time.sleep(0.3*settings.lag_offset)
-        x = ASA.strucutres.inventory.inv_slots["x"]
-        y = ASA.strucutres.inventory.inv_slots["y"]
-        if screen.screen_resolution == 1080:
-            windows.move_mouse(x * 0.75,y * 0.75)
-            windows.click(x * 0.75,y * 0.75)
-        else:
-            windows.move_mouse(x,y)
-            windows.click(x,y)
+        base_x = ASA.strucutres.inventory.inv_slots["x"]
+        base_y = ASA.strucutres.inventory.inv_slots["y"]
+        x = screen.map_x(base_x)
+        y = screen.map_y(base_y)
+        windows.move_mouse(x, y)
+        windows.click(x, y)
         
         for count in range(15):
             utils.press_key("a")

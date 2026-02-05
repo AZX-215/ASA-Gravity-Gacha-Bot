@@ -101,9 +101,23 @@ def enter_data(data:str):
     last_command = data
     
 def console_ccc():
+    """Return split ccc output or None.
+
+    This bot uses the Windows clipboard to retrieve the output of ARK's `ccc`
+    command. On some systems the clipboard can be briefly locked by other
+    processes (WinError 5), and ARK may also not update the clipboard unless we
+    explicitly copy the console text.
+
+    This implementation:
+      - Uses a sentinel clipboard value.
+      - Issues `ccc`.
+      - Explicitly copies console text (Ctrl+A, Ctrl+C).
+      - Polls until the clipboard changes to a plausible ccc payload.
+    """
+
     data = None
     attempts = 0
-    while data == None:
+    while data is None:
         attempts += 1
         logs.logger.debug(f"trying to get ccc data {attempts} / {ASA.config.console_ccc_attempts}")
         ASA.player.player_state.reset_state() #reset state at the start to make sure we can open up the console window
@@ -116,17 +130,31 @@ def console_ccc():
                 logs.logger.error(f"console didnt open after {count} attempts")
                 break
         if is_open():
-            before = _clipboard_get_text_safe(max_attempts=10)
+            # Put a sentinel in the clipboard so we can detect updates reliably.
+            sentinel = f"__CCC_SENTINEL__{time.time()}__"
+            _clipboard_set_text_safe(sentinel, max_attempts=25)
 
             enter_data("ccc")
-            time.sleep(0.2*settings.lag_offset)
+            time.sleep(0.15 * settings.lag_offset)
             utils.press_key("Enter")
+            time.sleep(0.10 * settings.lag_offset)
 
-            deadline = time.time() + (1.25 * settings.lag_offset)
+            # Explicitly copy the console text. Some setups won't update the clipboard
+            # unless we do this.
+            try:
+                pyautogui.hotkey("ctrl", "a")
+                time.sleep(0.02)
+                pyautogui.hotkey("ctrl", "c")
+            except Exception:
+                pass
+
+            deadline = time.time() + (2.00 * settings.lag_offset)
             while time.time() < deadline:
-                candidate = _clipboard_get_text_safe(max_attempts=10)
-                if candidate and candidate != before:
-                    if len(candidate.split()) >= 4:
+                candidate = _clipboard_get_text_safe(max_attempts=15)
+                if candidate and candidate != sentinel:
+                    parts = candidate.split()
+                    # Expected format looks like: "129887 -126198 7265 -55.33 -5.45"
+                    if len(parts) >= 5:
                         data = candidate
                         break
                 time.sleep(0.05)
@@ -134,7 +162,7 @@ def console_ccc():
         if attempts >= ASA.config.console_ccc_attempts:
             logs.logger.error(f"CCC is still returning NONE after {attempts} attempts")
             break        
-    if data != None:    
+    if data is not None:
         ccc_data = data.split()
         return ccc_data
     return data

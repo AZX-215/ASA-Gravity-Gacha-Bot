@@ -88,11 +88,17 @@ def normalize_yaw(yaw):
 
 def set_yaw(yaw):
     global current_yaw
+    ccc_data = ASA.player.console.console_ccc()
+    if not ccc_data or len(ccc_data) < 4:
+        logs.logger.error("set_yaw - unable to read ccc yaw (ccc_data is None/short); skipping yaw adjustment")
+        return False
+
     try:
-        logs.logger.debug(f"setting yaw as {float(ASA.player.console.console_ccc()[3])}")
-        current_yaw = float(ASA.player.console.console_ccc()[3])
+        current_yaw = float(ccc_data[3])
+        logs.logger.debug(f"setting yaw as {current_yaw}")
     except Exception as e:
-        logs.logger.error(f"error processing ccc_data[3]: {e}")
+        logs.logger.error(f"set_yaw - error parsing ccc_data[3]: {e}")
+        return False
 
     diff = ((yaw - current_yaw) + 180) % 360 - 180
     if diff < 0:
@@ -100,6 +106,7 @@ def set_yaw(yaw):
     else:
         turn_right(diff)
     current_yaw = normalize_yaw(yaw)
+    return True
 
 def set_pitch(pitch):
     global current_pitch
@@ -115,6 +122,9 @@ def yaw_zero(ccc_data = None):
 
     if ccc_data == None:
         ccc_data = ASA.player.console.console_ccc()
+    if not ccc_data or len(ccc_data) < 4:
+        logs.logger.error("yaw_zero - unable to read ccc yaw (ccc_data is None/short)")
+        return False
     try:
         if float(ccc_data[3]) > 0:
             turn_left(float(ccc_data[3]))
@@ -124,12 +134,17 @@ def yaw_zero(ccc_data = None):
     except Exception as e:
         logs.logger.error(f"error processing ccc_data[3]: {e}")
         #ark.check_state()
+        return False
+    return True
 
 def pitch_zero(ccc_data = None):
     global current_pitch
     
     if ccc_data == None:
         ccc_data = ASA.player.console.console_ccc()
+    if not ccc_data or len(ccc_data) < 5:
+        logs.logger.error("pitch_zero - unable to read ccc pitch (ccc_data is None/short)")
+        return False
     try:
         if float(ccc_data[4]) > 0:
             turn_down(float(ccc_data[4]))
@@ -138,6 +153,8 @@ def pitch_zero(ccc_data = None):
         current_pitch = 0
     except Exception as e:
         logs.logger.error(f"error processing ccc_data[4]: {e}")
+        return False
+    return True
         #ark.check_state()
 
 def zero():
