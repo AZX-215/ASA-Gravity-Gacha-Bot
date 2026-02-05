@@ -103,16 +103,16 @@ def enter_data(data:str):
 def console_ccc():
     """Return split ccc output or None.
 
-    This bot uses the Windows clipboard to retrieve the output of ARK's `ccc`
-    command. On some systems the clipboard can be briefly locked by other
-    processes (WinError 5), and ARK may also not update the clipboard unless we
-    explicitly copy the console text.
+    Original repo behavior relied on ARK updating the clipboard with `ccc` output.
+    The clipboard is occasionally locked (WinError 5), so we add:
+      - retry-safe clipboard access
+      - sentinel + polling for clipboard update
 
-    This implementation:
-      - Uses a sentinel clipboard value.
-      - Issues `ccc`.
-      - Explicitly copies console text (Ctrl+A, Ctrl+C).
-      - Polls until the clipboard changes to a plausible ccc payload.
+    We intentionally do NOT send Ctrl+A/C by default because if the console loses
+    focus, those keystrokes can trigger in-game actions (e.g., crouch on C).
+
+    If you *need* forced copy for a specific setup, enable settings.force_console_copy,
+    which will attempt Ctrl+A/C only while the console is confirmed open.
     """
 
     data = None
@@ -120,17 +120,20 @@ def console_ccc():
     while data is None:
         attempts += 1
         logs.logger.debug(f"trying to get ccc data {attempts} / {ASA.config.console_ccc_attempts}")
-        ASA.player.player_state.reset_state() #reset state at the start to make sure we can open up the console window
+
+        ASA.player.player_state.reset_state()
+
+        # Open console
         count = 0
         while not is_open():
             count += 1
             utils.press_key("ConsoleKeys")
-            template.template_await_true(is_open,1)
+            template.template_await_true(is_open, 1)
             if count >= ASA.config.console_open_attempts:
                 logs.logger.error(f"console didnt open after {count} attempts")
                 break
+
         if is_open():
-            # Put a sentinel in the clipboard so we can detect updates reliably.
             sentinel = f"__CCC_SENTINEL__{time.time()}__"
             _clipboard_set_text_safe(sentinel, max_attempts=25)
 
@@ -139,33 +142,61 @@ def console_ccc():
             utils.press_key("Enter")
             time.sleep(0.10 * settings.lag_offset)
 
-            # Explicitly copy the console text. Some setups won't update the clipboard
-            # unless we do this.
-            try:
-                pyautogui.hotkey("ctrl", "a")
-                time.sleep(0.02)
-                pyautogui.hotkey("ctrl", "c")
-            except Exception:
-                pass
+            # Poll for clipboard update (preferred path)
+            def _poll_for_ccc(timeout_s: float) -> str | None:
+                deadline = time.time() + timeout_s
+                while time.time() < deadline:
+                    candidate = _clipboard_get_text_safe(max_attempts=15)
+                    if candidate and candidate != sentinel:
+                        parts = candidate.split()
+                        if len(parts) >= 5:
+                            return candidate
+                    time.sleep(0.05)
+                return None
 
-            deadline = time.time() + (2.00 * settings.lag_offset)
-            while time.time() < deadline:
-                candidate = _clipboard_get_text_safe(max_attempts=15)
-                if candidate and candidate != sentinel:
-                    parts = candidate.split()
-                    # Expected format looks like: "129887 -126198 7265 -55.33 -5.45"
-                    if len(parts) >= 5:
-                        data = candidate
-                        break
-                time.sleep(0.05)
+            data = _poll_for_ccc(1.75 * settings.lag_offset)
+
+            # Optional forced copy path (guarded)
+            if data is None and getattr(settings, "force_console_copy", False):
+                try:
+                    # Only attempt if console is still open to avoid in-game actions.
+                    if is_open():
+                        # Click in console area to improve focus, then copy.
+                        try:
+                            # Use an existing strip ROI to estimate a safe click.
+                            strip = template.console_strip_bottom()
+                            # strip is an image; we don't have coords here, so just press console key again.
+                            utils.press_key("ConsoleKeys")
+                            time.sleep(0.05)
+                        except Exception:
+                            pass
+
+                        pyautogui.keyDown("ctrl")
+                        pyautogui.press("a")
+                        pyautogui.press("c")
+                        pyautogui.keyUp("ctrl")
+
+                        # Ensure ctrl is not stuck
+                        try:
+                            pyautogui.keyUp("ctrl")
+                        except Exception:
+                            pass
+
+                        data = _poll_for_ccc(1.75 * settings.lag_offset)
+                except Exception:
+                    # Best-effort only
+                    try:
+                        pyautogui.keyUp("ctrl")
+                    except Exception:
+                        pass
 
         if attempts >= ASA.config.console_ccc_attempts:
             logs.logger.error(f"CCC is still returning NONE after {attempts} attempts")
-            break        
+            break
+
     if data is not None:
-        ccc_data = data.split()
-        return ccc_data
-    return data
+        return data.split()
+    return None
 
 def console_write(text:str):
     attempts = 0
