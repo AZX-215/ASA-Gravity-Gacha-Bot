@@ -5,6 +5,27 @@ import screen
 import time 
 import logs.gachalogs as logs
 
+
+def _grab_region(region: dict):
+    return screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
+
+
+def _read_icon(item: str):
+    img = cv2.imread(f"icons{screen.screen_resolution}/{item}.png")
+    if img is not None:
+        return img
+
+    img = cv2.imread(f"icons1440/{item}.png")
+    if img is None:
+        logs.logger.error(f"Missing reconnect icon '{item}' (icons{screen.screen_resolution}/ and icons1440/).")
+        return None
+
+    fx = float(getattr(screen, "scale_x", 1.0))
+    fy = float(getattr(screen, "scale_y", 1.0))
+    if abs(fx - 1.0) > 0.001 or abs(fy - 1.0) > 0.001:
+        img = cv2.resize(img, (0, 0), fx=fx, fy=fy, interpolation=cv2.INTER_LINEAR)
+    return img
+
 location = {
     "accept":{"start_x":1220, "start_y":958 ,"width":100 ,"height":30},
     "escape":{"start_x":2330, "start_y":110 ,"width":60 ,"height":50},
@@ -28,10 +49,7 @@ location = {
 def check_template(item:str, threshold:float) -> bool:
     
     region = location[item]
-    if screen.screen_resolution == 1440:
-        roi = screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
-    else:
-        roi = screen.get_screen_roi(int(region["start_x"] * 0.75), int(region["start_y"] * 0.75), int(region["width"] * 0.75), int(region["height"] * 0.75))
+    roi = _grab_region(region)
         
     lower_boundary = np.array([0,30,200])
     upper_boundary = np.array([255,255,255])
@@ -41,7 +59,9 @@ def check_template(item:str, threshold:float) -> bool:
     masked_template = cv2.bitwise_and(roi, roi, mask= mask)
     gray_roi = cv2.cvtColor(masked_template, cv2.COLOR_BGR2GRAY)
 
-    image = cv2.imread(f"icons{screen.screen_resolution}/{item}.png")
+    image = _read_icon(item)
+    if image is None:
+        return False
     hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
     masked_template = cv2.bitwise_and(image, image, mask=mask)
@@ -59,10 +79,7 @@ def check_template(item:str, threshold:float) -> bool:
 def check_template_no_bounds(item:str, threshold:float) -> bool:
     
     region = location[item]
-    if screen.screen_resolution == 1440:
-        roi = screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
-    else:
-        roi = screen.get_screen_roi(int(region["start_x"] * 0.75), int(region["start_y"] * 0.75), int(region["width"] * 0.75), int(region["height"] * 0.75))
+    roi = _grab_region(region)
         
     lower_boundary = np.array([0,0,0])
     upper_boundary = np.array([255,255,255])
@@ -72,7 +89,9 @@ def check_template_no_bounds(item:str, threshold:float) -> bool:
     masked_template = cv2.bitwise_and(roi, roi, mask= mask)
     gray_roi = cv2.cvtColor(masked_template, cv2.COLOR_BGR2GRAY)
 
-    image = cv2.imread(f"icons{screen.screen_resolution}/{item}.png")
+    image = _read_icon(item)
+    if image is None:
+        return False
     hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
     masked_template = cv2.bitwise_and(image, image, mask=mask)

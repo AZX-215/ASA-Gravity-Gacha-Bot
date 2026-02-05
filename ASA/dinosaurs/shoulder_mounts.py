@@ -13,17 +13,15 @@ import pyautogui
 import local_player
 
 region = template.roi_regions["access_inv"]
-scale_factor = 1
-if screen.screen_resolution == 1080:
-    scale_factor = 0.75
-
 def access_shoulder_mount():
     pyautogui.keyDown(chr(utils.keymap_return(local_player.get_input_settings("Reload"))))
     # check for the location of the access_inv
     if template.template_await_true(template.check_template_no_bounds,1,"access_inv",0.7):
         x , y = template.return_location("access_inv",0.7) 
-        x = x + (scale_factor * region["start_x"])
-        y = y + (scale_factor * region["start_y"])
+        x0 = screen.map_x(region["start_x"])
+        y0 = screen.map_y(region["start_y"])
+        x = x0 + x
+        y = y0 + y
         windows.move_mouse(x+20,y+20)
         time.sleep(1)
         pyautogui.keyUp(chr(utils.keymap_return(local_player.get_input_settings("Reload"))))
