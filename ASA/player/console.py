@@ -10,30 +10,19 @@ import settings
 import ASA.config 
 import pyautogui
 import win32clipboard
-import pywintypes
+from ctypes import wintypes
 
 
 
-last_command = ""
-
-
-def _clipboard_open_with_retry(max_attempts:int=25, base_sleep:float=0.02):
-    """Open the Windows clipboard with retries.
-
-    Clipboard access is occasionally denied when another process holds it.
-    This wrapper prevents intermittent (5, 'OpenClipboard', 'Access is denied.') failures.
-    """
-    for i in range(1, max_attempts + 1):
+# --- Clipboard helpers (hardened) ---
+def _clipboard_open_retry(max_tries: int = 20, base_sleep: float = 0.02) -> bool:
+    for i in range(max_tries):
         try:
             win32clipboard.OpenClipboard()
             return True
-        except pywintypes.error as e:
-            if getattr(e, "winerror", None) in (5,):
-                time.sleep(base_sleep * (1 + (i // 5)))
-                continue
-            raise
+        except Exception:
+            time.sleep(base_sleep * (i + 1) * max(1.0, getattr(settings, "lag_offset", 1.0)))
     return False
-
 
 def _clipboard_close_safely():
     try:
@@ -41,89 +30,107 @@ def _clipboard_close_safely():
     except Exception:
         pass
 
-
-def _clipboard_get_text_safe(max_attempts:int=25):
-    opened = False
+def _set_clipboard_text(text: str) -> bool:
+    if not _clipboard_open_retry():
+        return False
     try:
-        opened = _clipboard_open_with_retry(max_attempts=max_attempts)
-        if not opened:
-            return None
-        if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_UNICODETEXT):
-            return win32clipboard.GetClipboardData(win32clipboard.CF_UNICODETEXT)
-        if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_TEXT):
-            data = win32clipboard.GetClipboardData(win32clipboard.CF_TEXT)
-            try:
-                return data.decode("utf-8", errors="ignore") if isinstance(data, (bytes, bytearray)) else str(data)
-            except Exception:
-                return str(data)
-        return None
-    except pywintypes.error as e:
-        if getattr(e, "winerror", None) in (5,):
-            return None
-        raise
-    finally:
-        if opened:
-            _clipboard_close_safely()
-
-
-def _clipboard_set_text_safe(text:str, max_attempts:int=25):
-    opened = False
-    try:
-        opened = _clipboard_open_with_retry(max_attempts=max_attempts)
-        if not opened:
-            return False
         win32clipboard.EmptyClipboard()
-        win32clipboard.SetClipboardText(text, win32clipboard.CF_UNICODETEXT)
+        # Prefer Unicode; fall back if needed
+        try:
+            win32clipboard.SetClipboardData(win32clipboard.CF_UNICODETEXT, text)
+        except Exception:
+            win32clipboard.SetClipboardText(text, win32clipboard.CF_TEXT)
         return True
-    except pywintypes.error as e:
-        if getattr(e, "winerror", None) in (5,):
-            return False
-        raise
     finally:
-        if opened:
-            _clipboard_close_safely()
+        _clipboard_close_safely()
+
+def _get_clipboard_text() -> str | None:
+    if not _clipboard_open_retry():
+        return None
+    try:
+        # Try Unicode first
+        try:
+            return win32clipboard.GetClipboardData(win32clipboard.CF_UNICODETEXT)
+        except Exception:
+            try:
+                return win32clipboard.GetClipboardData()
+            except Exception:
+                return None
+    finally:
+        _clipboard_close_safely()
+
+def _focus_console_input():
+    """Click near bottom-center of the ARK window to ensure console text box has focus."""
+    try:
+        rect = wintypes.RECT()
+        if ctypes.windll.user32.GetWindowRect(windows.hwnd, ctypes.byref(rect)):
+            x = int((rect.left + rect.right) / 2)
+            y = int(rect.bottom - 60)
+            pyautogui.click(x=x, y=y)
+            time.sleep(0.05 * max(1.0, getattr(settings, "lag_offset", 1.0)))
+    except Exception:
+        pass
+
+def _poll_for_ccc(max_wait_s: float = 0.6, sentinel: str | None = None) -> str | None:
+    """Poll clipboard briefly for a non-empty value (and not the sentinel if provided)."""
+    t_end = time.time() + (max_wait_s * max(1.0, getattr(settings, "lag_offset", 1.0)))
+    while time.time() < t_end:
+        txt = _get_clipboard_text()
+        if txt and isinstance(txt, str):
+            if sentinel is None or txt != sentinel:
+                return txt
+        time.sleep(0.05 * max(1.0, getattr(settings, "lag_offset", 1.0)))
+    return None
+
+def _looks_like_ccc(txt: str) -> bool:
+    # CCC output the bot expects is space-separated numbers (often 6 fields).
+    # We just require at least 5 tokens and that the first token parses as int.
+    if not txt or not isinstance(txt, str):
+        return False
+    parts = txt.strip().split()
+    if len(parts) < 5:
+        return False
+    try:
+        int(parts[0])
+        float(parts[3])
+        return True
+    except Exception:
+        return False
+
+
+last_command = ""
 
 def is_open():
     return template.console_strip_check(template.console_strip_bottom()) or template.console_strip_check(template.console_strip_middle())
 
-def enter_data(data:str):
+def enter_data(data: str):
     global last_command
     if ASA.config.up_arrow and data == last_command:
         logs.logger.debug(f"using uparrow to put {data} into the console")
         pyautogui.press("up")
     else:
         logs.logger.debug(f"using clipboard to put {data} into the console")
-        if _clipboard_set_text_safe(data):
-            pyautogui.hotkey("ctrl","v")
+        ok = _set_clipboard_text(data)
+        if ok:
+            pyautogui.hotkey("ctrl", "v")
         else:
-            logs.logger.warning(f"clipboard busy; typing '{data}' into the console")
+            # Clipboard busy; fallback to typing (slower but reliable)
+            logs.logger.warning("clipboard busy; typing command into console instead")
             pyautogui.typewrite(data, interval=0.01)
     last_command = data
-    
+
 def console_ccc():
-    """Return split ccc output or None.
-
-    Original repo behavior relied on ARK updating the clipboard with `ccc` output.
-    The clipboard is occasionally locked (WinError 5), so we add:
-      - retry-safe clipboard access
-      - sentinel + polling for clipboard update
-
-    We intentionally do NOT send Ctrl+A/C by default because if the console loses
-    focus, those keystrokes can trigger in-game actions (e.g., crouch on C).
-
-    If you *need* forced copy for a specific setup, enable settings.force_console_copy,
-    which will attempt Ctrl+A/C only while the console is confirmed open.
+    """Runs 'ccc' in the console and returns clipboard text containing the output.
+    Keeps original behavior first; if CCC repeatedly fails, uses a guarded copy fallback
+    (focus console input + Ctrl+A/Ctrl+C) to refresh clipboard without leaking keys to gameplay.
     """
-
     data = None
     attempts = 0
     while data is None:
         attempts += 1
         logs.logger.debug(f"trying to get ccc data {attempts} / {ASA.config.console_ccc_attempts}")
-
         ASA.player.player_state.reset_state()
 
-        # Open console
         count = 0
         while not is_open():
             count += 1
@@ -134,69 +141,39 @@ def console_ccc():
                 break
 
         if is_open():
-            sentinel = f"__CCC_SENTINEL__{time.time()}__"
-            _clipboard_set_text_safe(sentinel, max_attempts=25)
+            sentinel = f"__CCC_SENTINEL__{int(time.time()*1000)}"
+            _set_clipboard_text(sentinel)
 
             enter_data("ccc")
-            time.sleep(0.15 * settings.lag_offset)
+            time.sleep(0.2 * max(1.0, getattr(settings, "lag_offset", 1.0)))
             utils.press_key("Enter")
-            time.sleep(0.10 * settings.lag_offset)
 
-            # Poll for clipboard update (preferred path)
-            def _poll_for_ccc(timeout_s: float) -> str | None:
-                deadline = time.time() + timeout_s
-                while time.time() < deadline:
-                    candidate = _clipboard_get_text_safe(max_attempts=15)
-                    if candidate and candidate != sentinel:
-                        parts = candidate.split()
-                        if len(parts) >= 5:
-                            return candidate
-                    time.sleep(0.05)
-                return None
+            # Original behavior: read clipboard after a brief delay, but with polling + validation
+            data = _poll_for_ccc(max_wait_s=0.7, sentinel=sentinel)
+            if data and _looks_like_ccc(data):
+                return data
 
-            data = _poll_for_ccc(1.75 * settings.lag_offset)
+            # Guarded fallback: only if CCC didn't appear/validate
+            logs.logger.debug("ccc clipboard did not update; attempting guarded copy fallback")
+            _focus_console_input()
+            try:
+                pyautogui.hotkey("ctrl", "a")
+                pyautogui.hotkey("ctrl", "c")
+            except Exception:
+                pass
+            data = _poll_for_ccc(max_wait_s=0.7, sentinel=sentinel)
+            if data and _looks_like_ccc(data):
+                return data
 
-            # Optional forced copy path (guarded)
-            if data is None and getattr(settings, "force_console_copy", False):
-                try:
-                    # Only attempt if console is still open to avoid in-game actions.
-                    if is_open():
-                        # Click in console area to improve focus, then copy.
-                        try:
-                            # Use an existing strip ROI to estimate a safe click.
-                            strip = template.console_strip_bottom()
-                            # strip is an image; we don't have coords here, so just press console key again.
-                            utils.press_key("ConsoleKeys")
-                            time.sleep(0.05)
-                        except Exception:
-                            pass
-
-                        pyautogui.keyDown("ctrl")
-                        pyautogui.press("a")
-                        pyautogui.press("c")
-                        pyautogui.keyUp("ctrl")
-
-                        # Ensure ctrl is not stuck
-                        try:
-                            pyautogui.keyUp("ctrl")
-                        except Exception:
-                            pass
-
-                        data = _poll_for_ccc(1.75 * settings.lag_offset)
-                except Exception:
-                    # Best-effort only
-                    try:
-                        pyautogui.keyUp("ctrl")
-                    except Exception:
-                        pass
+            data = None  # keep looping
 
         if attempts >= ASA.config.console_ccc_attempts:
             logs.logger.error(f"CCC is still returning NONE after {attempts} attempts")
             break
 
-    if data is not None:
-        return data.split()
     return None
+
+
 
 def console_write(text:str):
     attempts = 0
