@@ -2,6 +2,12 @@ screen_resolution: int = 1440 # No longer in use.
 base_path: str = None # No longer in use.
 lag_offset: float = 1.4
 ui_layout_mode: str = "centered_16_9"  # "centered_16_9" (default, recommended for ultrawide) or "stretch"
+
+# Template set selection
+# If True and an icons*_hdr folder exists (e.g., icons1440_hdr, icons2160_hdr), templates will load from it.
+# If the *_hdr folder is missing, the bot falls back to the normal icons* folder.
+use_hdr_templates: bool = False
+
 iguanadon: str = "GACHAIGUANADON"
 open_crystals: str = "GACHACRYSOPEN" # 1st Resource Station.
 drop_off: str = "GACHADEDI" # 2st Resource Station.

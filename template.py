@@ -1,6 +1,7 @@
 import screen
 import numpy as np
 import cv2
+import os
 import logs.gachalogs as logs
 import settings
 import time
@@ -16,16 +17,40 @@ def _grab_region(region: dict):
 def _read_icon(item: str):
     """Load the template icon for the current resolution.
 
-    Prefers an exact-match icons{height}/ folder (e.g. icons1440, icons1080).
-    Falls back to icons1440 and resizes using screen.scale_x/scale_y for 4K/5K.
+    Template folders are keyed by vertical resolution:
+      - icons1440, icons1080, icons2160, icons2880, ...
+
+    If settings.use_hdr_templates is True and an HDR folder exists, the loader prefers:
+      - icons{height}_hdr/
+
+    Otherwise it uses:
+      - icons{height}/
+
+    If an exact-match folder is missing, it falls back to the 1440 set and resizes using
+    screen.scale_x/scale_y for 4K/5K.
     """
-    img = cv2.imread(f"icons{screen.screen_resolution}/{item}.png")
+
+    height = int(getattr(screen, "screen_resolution", 1440) or 1440)
+
+    def _pick_dir(h: int) -> str:
+        base = f"icons{h}"
+        if getattr(settings, "use_hdr_templates", False):
+            hdr = f"{base}_hdr"
+            if os.path.isdir(hdr):
+                return hdr
+        return base
+
+    primary_dir = _pick_dir(height)
+    img = cv2.imread(os.path.join(primary_dir, f"{item}.png"))
     if img is not None:
         return img
 
-    img = cv2.imread(f"icons1440/{item}.png")
+    fallback_dir = _pick_dir(1440)
+    img = cv2.imread(os.path.join(fallback_dir, f"{item}.png"))
     if img is None:
-        logs.logger.error(f"Missing icon for template '{item}' (looked in icons{screen.screen_resolution}/ and icons1440/).")
+        logs.logger.error(
+            f"Missing icon for template '{item}' (looked in {primary_dir}/ and {fallback_dir}/)."
+        )
         return None
 
     # Resize from 1440 baseline to current resolution.
@@ -34,7 +59,6 @@ def _read_icon(item: str):
     if abs(fx - 1.0) > 0.001 or abs(fy - 1.0) > 0.001:
         img = cv2.resize(img, (0, 0), fx=fx, fy=fy, interpolation=cv2.INTER_LINEAR)
     return img
-
 
 def _masked_gray(bgr: np.ndarray, lower: np.ndarray, upper: np.ndarray) -> np.ndarray:
     hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
