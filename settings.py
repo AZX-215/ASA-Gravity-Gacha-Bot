@@ -1,19 +1,5 @@
 screen_resolution: int = 1440 # No longer in use.
 base_path: str = None # No longer in use.
-# --- Display / scaling options (safe defaults) ---
-# Controls how 2560x1440-authored coordinates/ROIs are mapped to your current ARK client resolution.
-# True keeps the existing (current) multi-resolution behavior.
-enable_resolution_mapping: bool = True
-
-# How ARK UI is laid out on ultrawide.
-# - "centered_16_9": treat UI as 16:9 canvas scaled by height and centered (recommended default)
-# - "stretch": scale X independently to fill full width (only if your UI truly stretches)
-ui_layout_mode: str = "centered_16_9"
-
-# Template set selection: if True and icons{height}_hdr/ exists, prefer it over icons{height}/.
-# Example: icons1440_hdr/ with the same filenames/crops as icons1440/.
-use_hdr_templates: bool = False
-
 lag_offset: float = 1.4
 iguanadon: str = "GACHAIGUANADON"
 open_crystals: str = "GACHACRYSOPEN" # 1st Resource Station.
@@ -80,8 +66,24 @@ if __name__ =="__main__":
 
     pass
 
+# --- Discord alert throttling (rate-limit protection) ---
+# Channel id for alerts; if None, falls back to log_channel_gacha.
+log_channel_alerts = None
 
+# Minimum seconds between sending *new* alert messages (alert panel is edited instead).
+alert_flush_interval_sec = 10.0
 
+# Suppress duplicate alert lines for this many seconds; duplicates become (xN) counters.
+alert_dedup_window_sec = 120.0
 
+# Maximum unique alert entries to show in the alert panel (most recent first).
+alert_panel_max_entries = 20
 
+# Maximum characters of alert panel content (Discord limit is 2000; keep below).
+alert_panel_max_chars = 1800
 
+# If True, CRITICAL alerts also send an immediate one-off message (still deduped/cooldowned).
+alert_critical_immediate = True
+
+# Cooldown (seconds) for sending the same CRITICAL immediate alert key again.
+alert_critical_cooldown_sec = 60.0
