@@ -172,13 +172,40 @@ async def send_new_logs():
                 for line in new_text.splitlines(True):
                     tail_lines.append(line)
                     if any(level in line for level in alert_levels):
-                        alert_buffer.append((_extract_task_ctx(line), line))
+                        task_ctx = _extract_task_ctx(line)
+                        parts = line.split(" - ", 1)
+                        norm = parts[1].strip() if len(parts) > 1 else line.strip()
+                        key = (task_ctx, norm)
+                        now_ts = time.time()
+
+                        st = dedupe_map.get(key)
+                        if st is None:
+                            dedupe_map[key] = {"count": 1, "last": now_ts, "last_report": now_ts, "norm": norm}
+                            alert_buffer.append((task_ctx, line))
+                        else:
+                            st["count"] += 1
+                            st["last"] = now_ts
+
+                        # Maintain bounded queue (Discord safe)
                         if len(alert_buffer) > alert_max_pending_lines:
                             drop_n = len(alert_buffer) - alert_max_pending_lines
                             suppressed_alerts += drop_n
                             del alert_buffer[:drop_n]
 
             # Post alert history as separate messages (best-effort, rate-safe).
+            # Dedupe flush: summarize repeated alerts instead of spamming Discord.
+            now_ts = time.time()
+            for (tctx, norm), st in list(dedupe_map.items()):
+                if st.get("count", 1) > 1 and (now_ts - st.get("last_report", 0)) >= dedupe_window_sec:
+                    rep = st["count"] - 1
+                    stamp = time.strftime("%H:%M:%S")
+                    summary = f"{stamp} - WARNING - dedupe - repeated {rep}x: {st['norm']}\n"
+                    alert_buffer.append((tctx, summary))
+                    st["count"] = 1
+                    st["last_report"] = now_ts
+                if (now_ts - st.get("last", now_ts)) > 3600:
+                    dedupe_map.pop((tctx, norm), None)
+
             if alert_buffer:
                 alert_channel_id = getattr(settings, "log_channel_alerts", None) or settings.log_channel_gacha
                 alert_channel = bot.get_channel(alert_channel_id) if alert_channel_id else None
