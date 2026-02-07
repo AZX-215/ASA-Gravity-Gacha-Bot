@@ -7,7 +7,6 @@ import pyautogui
 import settings
 import json
 import time
-import re
 import logs.discordbot as discordbot
 import bot.stations as stations
 import task_manager
@@ -61,15 +60,6 @@ async def send_new_logs():
     # To avoid Discord rate limits during bursts, buffer and send in throttled batches.
     alert_levels = (" - WARNING - ", " - ERROR - ", " - CRITICAL - ")
     alert_buffer = []  # list[(task_ctx, line)]
-    # Collapse consecutive duplicate alert lines to reduce Discord spam/rate-limits.
-    last_alert_key = None
-    last_alert_task = None
-    last_alert_count = 0
-
-    def _norm_alert(line: str) -> str:
-        # Strip leading HH:MM:SS - to dedup identical messages with different timestamps.
-        return re.sub(r'^\s*\d{2}:\d{2}:\d{2}\s*-\s*', '', (line or '')).strip()
-
     suppressed_alerts = 0
 
     # Throttle controls (can be overridden in settings.py)
@@ -182,18 +172,7 @@ async def send_new_logs():
                 for line in new_text.splitlines(True):
                     tail_lines.append(line)
                     if any(level in line for level in alert_levels):
-                        task_ctx = _extract_task_ctx(line)
-                        alert_key = _norm_alert(line)
-                        if alert_key == last_alert_key and task_ctx == last_alert_task and alert_buffer:
-                            last_alert_count += 1
-                            prev_task, prev_line = alert_buffer[-1]
-                            base = re.sub(r'\s*\(x\d+\)\s*$', '', prev_line.rstrip('\n'))
-                            alert_buffer[-1] = (prev_task, base + f' (x{last_alert_count})\n')
-                        else:
-                            last_alert_key = alert_key
-                            last_alert_task = task_ctx
-                            last_alert_count = 1
-                            alert_buffer.append((task_ctx, line))
+                        alert_buffer.append((_extract_task_ctx(line), line))
                         if len(alert_buffer) > alert_max_pending_lines:
                             drop_n = len(alert_buffer) - alert_max_pending_lines
                             suppressed_alerts += drop_n

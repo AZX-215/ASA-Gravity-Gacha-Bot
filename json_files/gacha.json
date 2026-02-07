@@ -1,0 +1,592 @@
+[
+    {
+        "name": "01 Left",
+        "teleporter": "Gacha *01",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "01 Right",
+        "teleporter": "Gacha *01",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "02 Left",
+        "teleporter": "Gacha *02",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "02 Right",
+        "teleporter": "Gacha *02",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "03 Left",
+        "teleporter": "Gacha *03",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "03 Right",
+        "teleporter": "Gacha *03",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "04 Left",
+        "teleporter": "Gacha *04",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "04 Right",
+        "teleporter": "Gacha *04",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "05 Left",
+        "teleporter": "Gacha *05",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "05 Right",
+        "teleporter": "Gacha *05",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "06 Left",
+        "teleporter": "Gacha *06",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "06 Right",
+        "teleporter": "Gacha *06",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "07 Left",
+        "teleporter": "Gacha *07",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "07 Right",
+        "teleporter": "Gacha *07",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "08 Left",
+        "teleporter": "Gacha *08",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "08 Right",
+        "teleporter": "Gacha *08",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "09 Left",
+        "teleporter": "Gacha *09",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "09 Right",
+        "teleporter": "Gacha *09",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "10 Left",
+        "teleporter": "Gacha *10",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "10 Right",
+        "teleporter": "Gacha *10",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "11 Left",
+        "teleporter": "Gacha *11",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "11 Right",
+        "teleporter": "Gacha *11",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "12 Left",
+        "teleporter": "Gacha *12",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "12 Right",
+        "teleporter": "Gacha *12",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "13 Left",
+        "teleporter": "Gacha *13",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "13 Right",
+        "teleporter": "Gacha *13",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "14 Left",
+        "teleporter": "Gacha *14",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "14 Right",
+        "teleporter": "Gacha *14",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "15 Left",
+        "teleporter": "Gacha *15",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "15 Right",
+        "teleporter": "Gacha *15",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "16 Left",
+        "teleporter": "Gacha *16",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "16 Right",
+        "teleporter": "Gacha *16",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "17 Left",
+        "teleporter": "Gacha *17",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "17 Right",
+        "teleporter": "Gacha *17",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "18 Left",
+        "teleporter": "Gacha *18",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "18 Right",
+        "teleporter": "Gacha *18",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "19 Left",
+        "teleporter": "Gacha *19",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "19 Right",
+        "teleporter": "Gacha *19",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "20 Left",
+        "teleporter": "Gacha *20",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "20 Right",
+        "teleporter": "Gacha *20",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "21 Left",
+        "teleporter": "Gacha *21",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "21 Right",
+        "teleporter": "Gacha *21",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "22 Left",
+        "teleporter": "Gacha *22",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "22 Right",
+        "teleporter": "Gacha *22",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "23 Left",
+        "teleporter": "Gacha *23",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "23 Right",
+        "teleporter": "Gacha *23",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "24 Left",
+        "teleporter": "Gacha *24",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "24 Right",
+        "teleporter": "Gacha *24",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "25 Left",
+        "teleporter": "Gacha *25",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "25 Right",
+        "teleporter": "Gacha *25",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "26 Left",
+        "teleporter": "Gacha *26",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "26 Right",
+        "teleporter": "Gacha *26",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "27 Left",
+        "teleporter": "Gacha *27",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "27 Right",
+        "teleporter": "Gacha *27",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "28 Left",
+        "teleporter": "Gacha *28",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "28 Right",
+        "teleporter": "Gacha *28",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "29 Left",
+        "teleporter": "Gacha *29",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "29 Right",
+        "teleporter": "Gacha *29",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "30 Left",
+        "teleporter": "Gacha *30",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "30 Right",
+        "teleporter": "Gacha *30",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "31 Left",
+        "teleporter": "Gacha *31",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "31 Right",
+        "teleporter": "Gacha *31",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "32 Left",
+        "teleporter": "Gacha *32",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "32 Right",
+        "teleporter": "Gacha *32",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "33 Left",
+        "teleporter": "Gacha *33",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "33 Right",
+        "teleporter": "Gacha *33",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "34 Left",
+        "teleporter": "Gacha *34",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "34 Right",
+        "teleporter": "Gacha *34",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "35 Left",
+        "teleporter": "Gacha *35",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "35 Right",
+        "teleporter": "Gacha *35",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "36 Left",
+        "teleporter": "Gacha *36",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "36 Right",
+        "teleporter": "Gacha *36",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "37 Left",
+        "teleporter": "Gacha *37",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "37 Right",
+        "teleporter": "Gacha *37",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "38 Left",
+        "teleporter": "Gacha *38",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "38 Right",
+        "teleporter": "Gacha *38",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "39 Left",
+        "teleporter": "Gacha *39",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "39 Right",
+        "teleporter": "Gacha *39",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "40 Left",
+        "teleporter": "Gacha *40",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "40 Right",
+        "teleporter": "Gacha *40",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "41 Left",
+        "teleporter": "Gacha *41",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "41 Right",
+        "teleporter": "Gacha *41",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "42 Left",
+        "teleporter": "Gacha *42",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "42 Right",
+        "teleporter": "Gacha *42",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "43 Left",
+        "teleporter": "Gacha *43",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "43 Right",
+        "teleporter": "Gacha *43",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "44 Left",
+        "teleporter": "Gacha *44",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "44 Right",
+        "teleporter": "Gacha *44",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "45 Left",
+        "teleporter": "Gacha *45",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "45 Right",
+        "teleporter": "Gacha *45",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "46 Left",
+        "teleporter": "Gacha *46",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "46 Right",
+        "teleporter": "Gacha *46",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "47 Left",
+        "teleporter": "Gacha *47",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "47 Right",
+        "teleporter": "Gacha *47",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "48 Left",
+        "teleporter": "Gacha *48",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "48 Right",
+        "teleporter": "Gacha *48",
+        "resource_type": "element",
+        "side": "right"
+    },
+    {
+        "name": "49 Left",
+        "teleporter": "Gacha *49",
+        "resource_type": "element",
+        "side": "left"
+    },
+    {
+        "name": "49 Right",
+        "teleporter": "Gacha *49",
+        "resource_type": "element",
+        "side": "right"
+    }
+
+
+]

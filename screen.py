@@ -18,6 +18,8 @@ BASE_HEIGHT = 1440
 DEFAULT_WINDOW_TITLE = "ArkAscended"
 
 # Public globals populated at import-time (and refreshable via refresh()).
+enable_resolution_mapping = True  # read from settings in refresh()
+
 screen_resolution: int  # backwards-compat alias: the game window client height in pixels
 screen_width: int
 screen_height: int
@@ -85,10 +87,22 @@ def refresh(window_title: str = DEFAULT_WINDOW_TITLE):
     try:
         import settings  # type: ignore
         ui_mode = getattr(settings, "ui_layout_mode", "centered_16_9")
+        global enable_resolution_mapping
+        enable_resolution_mapping = bool(getattr(settings, "enable_resolution_mapping", True))
     except Exception:
         ui_mode = "centered_16_9"
 
     ui_mode = (ui_mode or "centered_16_9").strip().lower()
+
+    # Optional kill-switch: disable mapping (behaves like original 1440-only coordinates).
+    if not enable_resolution_mapping:
+        scale_x = 1.0
+        scale_y = 1.0
+        offset_x = 0.0
+        offset_y = 0.0
+        client_left, client_top, mon = left, top, None
+        return
+
 
     if ui_mode == "stretch":
         scale_x = screen_width / float(BASE_WIDTH)

@@ -1,0 +1,6 @@
+[
+  { "station_name": "GACHA-SPARK #001", "delay": 6000,  "deposit_height": 3 },
+  { "station_name": "GACHA-SPARK #002", "delay": 6000,  "deposit_height": 3 },
+  { "station_name": "GACHA-SPARK #003", "delay": 6000, "deposit_height": 3 },
+  { "station_name": "GACHA-SPARK #004", "delay": 6000, "deposit_height": 3 }
+]
