@@ -8,55 +8,53 @@ import ASA.player.console
 import json
 
 
-def _grab_region(region: dict):
-    # All regions are authored at 2560x1440 and screen.get_screen_roi auto-scales/centers.
-    return screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
-
 
 def _read_icon(item: str):
-    """Load the template icon for the current resolution.
+    """Read template image for current resolution, optionally preferring HDR folders.
 
-    Prefers an exact-match icons{height}/ folder (e.g. icons1440, icons1080).
-    If settings.use_hdr_templates is True, prefers icons{height}_hdr/ when present.
-    Falls back to icons1440 (or icons1440_hdr) and resizes using screen.scale_x/scale_y for 4K/5K.
+    Folder precedence:
+      1) icons{height}_hdr/ (if settings.use_hdr_templates and folder exists)
+      2) icons{height}/
+      3) icons1440_hdr/ (if enabled and exists)
+      4) icons1440/
+
+    If fallback to 1440 is used and screen scale != 1, resize to match runtime.
     """
-
-    def _try_read(folder: str):
-        return cv2.imread(f"{folder}/{item}.png")
+    import os
 
     height = int(getattr(screen, "screen_resolution", 1440) or 1440)
-
     prefer_hdr = bool(getattr(settings, "use_hdr_templates", False))
+
+    def _try(folder: str):
+        return cv2.imread(f"{folder}/{item}.png")
+
     folders = []
-    if prefer_hdr:
+    if prefer_hdr and os.path.isdir(f"icons{height}_hdr"):
         folders.append(f"icons{height}_hdr")
-    folders.append(f"icons{height}")
+    if os.path.isdir(f"icons{height}"):
+        folders.append(f"icons{height}")
 
     for folder in folders:
-        img = _try_read(folder)
+        img = _try(folder)
         if img is not None:
             return img
 
-    # Fallback to 1440 set
-    fallback_folders = []
-    if prefer_hdr:
-        fallback_folders.append("icons1440_hdr")
-    fallback_folders.append("icons1440")
+    # fallback to 1440
+    fb = []
+    if prefer_hdr and os.path.isdir("icons1440_hdr"):
+        fb.append("icons1440_hdr")
+    fb.append("icons1440")
 
     img = None
-    for folder in fallback_folders:
-        img = _try_read(folder)
+    for folder in fb:
+        img = _try(folder)
         if img is not None:
             break
 
     if img is None:
-        logs.logger.error(
-            f"Missing icon for template '{item}' (looked in icons{height}/, icons{height}_hdr/ (if enabled), "
-            f"and 1440 fallbacks)."
-        )
+        logs.logger.error(f"Missing icon for template '{item}'.")
         return None
 
-    # Resize from 1440 baseline to current resolution.
     fx = float(getattr(screen, "scale_x", 1.0))
     fy = float(getattr(screen, "scale_y", 1.0))
     if abs(fx - 1.0) > 0.001 or abs(fy - 1.0) > 0.001:
@@ -64,25 +62,9 @@ def _read_icon(item: str):
     return img
 
 
-    img = cv2.imread(f"icons1440/{item}.png")
-    if img is None:
-        logs.logger.error(f"Missing icon for template '{item}' (looked in icons{screen.screen_resolution}/ and icons1440/).")
-        return None
-
-    # Resize from 1440 baseline to current resolution.
-    fx = float(getattr(screen, "scale_x", 1.0))
-    fy = float(getattr(screen, "scale_y", 1.0))
-    if abs(fx - 1.0) > 0.001 or abs(fy - 1.0) > 0.001:
-        img = cv2.resize(img, (0, 0), fx=fx, fy=fy, interpolation=cv2.INTER_LINEAR)
-    return img
-
-
-def _masked_gray(bgr: np.ndarray, lower: np.ndarray, upper: np.ndarray) -> np.ndarray:
-    hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, lower, upper)
-    masked = cv2.bitwise_and(bgr, bgr, mask=mask)
-    return cv2.cvtColor(masked, cv2.COLOR_BGR2GRAY)
-
+def _grab_roi(region: dict):
+    # Regions are authored at 2560x1440; screen.get_screen_roi maps to current client.
+    return screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
 
 
 roi_regions = {
@@ -110,10 +92,7 @@ roi_regions = {
     "player_stats": {"start_x":1120, "start_y":240 ,"width":300 ,"height":900},
     "show_buff":{"start_x":1200, "start_y":1150 ,"width":200 ,"height":50},
     "snow_owl_pellet":{"start_x":200, "start_y":150 ,"width":600 ,"height":600},
-    # Teleporter READY highlight probe region (authored at 2560x1440).
-    # Centered around the original single-pixel probe at (705, 290) but expanded
-    # to tolerate scaling rounding, AA, HDR/gamma variance.
-    "orange":{"start_x":693, "start_y":278 ,"width":24 ,"height":24},
+    "orange":{"start_x":705, "start_y":290 ,"width":1 ,"height":1},
     "chem_bench":{"start_x":1100, "start_y":245 ,"width":355 ,"height":70},
     "megalab": {"start_x":1100, "start_y":245 ,"width":355 ,"height":70},
     "indi_forge":{"start_x":1100, "start_y":245 ,"width":355 ,"height":70},
@@ -137,22 +116,26 @@ def template_await_false(func,sleep_amount:float,*args) -> bool:
         count += 1
     return func(*args)
 
-def check_template(item: str, threshold: float) -> bool:
+def check_template(item:str, threshold:float) -> bool:
     region = roi_regions[item]
-    roi = _grab_region(region)
+    roi = _grab_roi(region)
+        
+    lower_boundary = np.array([0,30,200])
+    upper_boundary = np.array([255,255,255])
 
-    lower_boundary = np.array([0, 30, 200])
-    upper_boundary = np.array([255, 255, 255])
+    hsv = cv2.cvtColor(roi,cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
+    masked_template = cv2.bitwise_and(roi, roi, mask= mask)
+    gray_roi = cv2.cvtColor(masked_template, cv2.COLOR_BGR2GRAY)
 
-    gray_roi = _masked_gray(roi, lower_boundary, upper_boundary)
+    image = _read_icon(item)
+    hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
+    masked_template = cv2.bitwise_and(image, image, mask=mask)
+    image = cv2.cvtColor(masked_template,cv2.COLOR_BGR2GRAY)
 
-    icon = _read_icon(item)
-    if icon is None:
-        return False
-    gray_icon = _masked_gray(icon, lower_boundary, upper_boundary)
-
-    res = cv2.matchTemplate(gray_roi, gray_icon, cv2.TM_CCOEFF_NORMED)
-    _, max_val, _, _ = cv2.minMaxLoc(res)
+    res = cv2.matchTemplate(gray_roi, image, cv2.TM_CCOEFF_NORMED)
+    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
 
     if max_val > threshold:
         logs.logger.template(f"{item} found:{max_val}")
@@ -160,23 +143,26 @@ def check_template(item: str, threshold: float) -> bool:
     logs.logger.template(f"{item} not found:{max_val} threshold:{threshold}")
     return False
 
-
-def check_template_no_bounds(item: str, threshold: float) -> bool:
+def check_template_no_bounds(item:str, threshold:float) -> bool:
     region = roi_regions[item]
-    roi = _grab_region(region)
+    roi = _grab_roi(region)
+        
+    lower_boundary = np.array([0,0,0])
+    upper_boundary = np.array([255,255,255])
 
-    lower_boundary = np.array([0, 0, 0])
-    upper_boundary = np.array([255, 255, 255])
+    hsv = cv2.cvtColor(roi,cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
+    masked_template = cv2.bitwise_and(roi, roi, mask= mask)
+    gray_roi = cv2.cvtColor(masked_template, cv2.COLOR_BGR2GRAY)
 
-    gray_roi = _masked_gray(roi, lower_boundary, upper_boundary)
+    image = _read_icon(item)
+    hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
+    masked_template = cv2.bitwise_and(image, image, mask=mask)
+    image = cv2.cvtColor(masked_template,cv2.COLOR_BGR2GRAY)
 
-    icon = _read_icon(item)
-    if icon is None:
-        return False
-    gray_icon = _masked_gray(icon, lower_boundary, upper_boundary)
-
-    res = cv2.matchTemplate(gray_roi, gray_icon, cv2.TM_CCOEFF_NORMED)
-    _, max_val, _, _ = cv2.minMaxLoc(res)
+    res = cv2.matchTemplate(gray_roi, image, cv2.TM_CCOEFF_NORMED)
+    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
 
     if max_val > threshold:
         logs.logger.template(f"{item} found:{max_val}")
@@ -184,48 +170,53 @@ def check_template_no_bounds(item: str, threshold: float) -> bool:
     logs.logger.template(f"{item} not found:{max_val} threshold:{threshold}")
     return False
 
-
-def return_location(item: str, threshold: float):
-    # Assumes the check for the item on the screen has already been done.
+def return_location(item:str,threshold:float): #assumes that the check for the item on the screen has already been done
     region = roi_regions[item]
-    roi = _grab_region(region)
+    roi = _grab_roi(region)
+        
+    lower_boundary = np.array([0,0,0])
+    upper_boundary = np.array([255,255,255])
 
-    lower_boundary = np.array([0, 0, 0])
-    upper_boundary = np.array([255, 255, 255])
+    hsv = cv2.cvtColor(roi,cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
+    masked_template = cv2.bitwise_and(roi, roi, mask= mask)
+    gray_roi = cv2.cvtColor(masked_template, cv2.COLOR_BGR2GRAY)
 
-    gray_roi = _masked_gray(roi, lower_boundary, upper_boundary)
+    image = _read_icon(item)
+    hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
+    masked_template = cv2.bitwise_and(image, image, mask=mask)
+    image = cv2.cvtColor(masked_template,cv2.COLOR_BGR2GRAY)
 
-    icon = _read_icon(item)
-    if icon is None:
-        return 0
-    gray_icon = _masked_gray(icon, lower_boundary, upper_boundary)
-
-    res = cv2.matchTemplate(gray_roi, gray_icon, cv2.TM_CCOEFF_NORMED)
-    _, max_val, _, max_loc = cv2.minMaxLoc(res)
+    res = cv2.matchTemplate(gray_roi, image, cv2.TM_CCOEFF_NORMED)
+    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
 
     if max_val > threshold:
         logs.logger.template(f"{item} found:{max_val} at:{max_loc}")
-        return max_loc
+        return max_loc 
     logs.logger.template(f"{item} not found:{max_val} threshold:{threshold}")
     return 0
 
-
-def teleport_icon(threshold: float) -> bool:
+def teleport_icon(threshold:float) -> bool:
     region = roi_regions["teleporter_icon"]
-    roi = _grab_region(region)
+    roi = screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
+        
+    lower_boundary = np.array([0,0,150])
+    upper_boundary = np.array([255,255,255])
 
-    lower_boundary = np.array([0, 0, 150])
-    upper_boundary = np.array([255, 255, 255])
+    hsv = cv2.cvtColor(roi,cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
+    masked_template = cv2.bitwise_and(roi, roi, mask= mask)
+    gray_roi = cv2.cvtColor(masked_template, cv2.COLOR_BGR2GRAY)
 
-    gray_roi = _masked_gray(roi, lower_boundary, upper_boundary)
+    image = cv2.imread(f"icons{screen.screen_resolution}/teleporter_icon.png")
+    hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
+    masked_template = cv2.bitwise_and(image, image, mask=mask)
+    image = cv2.cvtColor(masked_template,cv2.COLOR_BGR2GRAY)
 
-    icon = _read_icon("teleporter_icon")
-    if icon is None:
-        return False
-    gray_icon = _masked_gray(icon, lower_boundary, upper_boundary)
-
-    res = cv2.matchTemplate(gray_roi, gray_icon, cv2.TM_CCOEFF_NORMED)
-    _, max_val, _, _ = cv2.minMaxLoc(res)
+    res = cv2.matchTemplate(gray_roi, image, cv2.TM_CCOEFF_NORMED)
+    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
 
     if max_val > threshold:
         logs.logger.template(f"teleporter_icon found:{max_val}")
@@ -233,23 +224,27 @@ def teleport_icon(threshold: float) -> bool:
     logs.logger.template(f"teleporter_icon not found:{max_val} threshold:{threshold}")
     return False
 
-
-def inventory_first_slot(item: str, threshold: float) -> bool:
+def inventory_first_slot(item:str,threshold:float) -> bool:
     region = roi_regions["first_slot"]
-    roi = _grab_region(region)
+    roi = screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
+    
+    lower_boundary = np.array([0,0,0])
+    upper_boundary = np.array([255,255,255])
 
-    lower_boundary = np.array([0, 0, 0])
-    upper_boundary = np.array([255, 255, 255])
+    hsv = cv2.cvtColor(roi,cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
+    masked_template = cv2.bitwise_and(roi, roi, mask= mask)
+    gray_roi = cv2.cvtColor(masked_template, cv2.COLOR_BGR2GRAY)
 
-    gray_roi = _masked_gray(roi, lower_boundary, upper_boundary)
+    image = _read_icon(item)
+    hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
+    masked_template = cv2.bitwise_and(image, image, mask=mask)
+    image = cv2.cvtColor(masked_template,cv2.COLOR_BGR2GRAY)
 
-    icon = _read_icon(item)
-    if icon is None:
-        return False
-    gray_icon = _masked_gray(icon, lower_boundary, upper_boundary)
+    res = cv2.matchTemplate(gray_roi, image, cv2.TM_CCOEFF_NORMED)
+    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
 
-    res = cv2.matchTemplate(gray_roi, gray_icon, cv2.TM_CCOEFF_NORMED)
-    _, max_val, _, _ = cv2.minMaxLoc(res)
 
     if max_val > threshold:
         logs.logger.template(f"{item} found:{max_val}")
@@ -257,23 +252,26 @@ def inventory_first_slot(item: str, threshold: float) -> bool:
     logs.logger.template(f"{item} not found:{max_val} threshold:{threshold}")
     return False
 
-
-def check_buffs(buff: str, threshold: float) -> bool:
+def check_buffs(buff,threshold):
     region = roi_regions["player_stats"]
-    roi = _grab_region(region)
-
+    roi = screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
+    
     lower_boundary = np.array([0, 0, 180])
-    upper_boundary = np.array([255, 255, 255])
+    upper_boundary = np.array([255,255,255])
 
-    gray_roi = _masked_gray(roi, lower_boundary, upper_boundary)
+    hsv = cv2.cvtColor(roi,cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
+    masked_template = cv2.bitwise_and(roi, roi, mask= mask)
+    gray_roi = cv2.cvtColor(masked_template, cv2.COLOR_BGR2GRAY)
 
-    icon = _read_icon(buff)
-    if icon is None:
-        return False
-    gray_icon = _masked_gray(icon, lower_boundary, upper_boundary)
+    image = _read_icon(buff)
+    hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
+    masked_template = cv2.bitwise_and(image, image, mask=mask)
+    image = cv2.cvtColor(masked_template,cv2.COLOR_BGR2GRAY)
 
-    res = cv2.matchTemplate(gray_roi, gray_icon, cv2.TM_CCOEFF_NORMED)
-    _, max_val, _, _ = cv2.minMaxLoc(res)
+    res = cv2.matchTemplate(gray_roi, image, cv2.TM_CCOEFF_NORMED)
+    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
 
     if max_val > threshold:
         logs.logger.template(f"{buff} found:{max_val}")
@@ -281,48 +279,20 @@ def check_buffs(buff: str, threshold: float) -> bool:
     logs.logger.template(f"{buff} not found:{max_val} threshold:{threshold}")
     return False
 
-
 def check_teleporter_orange():
-    """Return True if the currently selected bed/teleporter entry is in a 'Ready' state.
+    region = roi_regions["orange"]
+    if screen.screen_resolution == 1440:
+        roi = screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
+    else:
+        roi = screen.get_screen_roi(int(region["start_x"] * 0.75), int(region["start_y"] * 0.75), int(region["width"]), int(region["height"]))
 
-    The original bot used a single HSV pixel probe (very sensitive but brittle).
-    The v4 patch used a large-column HSV % which can miss the highlight when it's small.
+    lower_boundary = np.array([10,211,50])
+    upper_boundary = np.array([15,255,100])
 
-    This version combines:
-      1) Template match against 'ready_clicked_bed' (fast and reliable when the template is accurate)
-      2) A small HSV probe patch around the original orange pixel location (705,290 at 1440 baseline)
-    """
-
-    # 1) Template match signal (resolution-aware via _read_icon()).
-    try:
-        if check_template("ready_clicked_bed", 0.60):
-            logs.logger.template("teleporter ready (template)")
-            return True
-    except Exception:
-        pass
-
-    # 2) Orange probe patch (restores the intent of the original single-pixel check,
-    # but uses a small area to tolerate rounding/AA/HDR).
-    region = roi_regions.get("orange")
-    if not region:
-        return False
-
-    roi = _grab_region(region)
-    hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-
-    # Broad orange/yellow range; highlight color varies by gamma/HDR.
-    # Hue: 0-55, Sat: 60+, Val: 60+
-    lower = np.array([0, 60, 60])
-    upper = np.array([55, 255, 255])
-    mask = cv2.inRange(hsv, lower, upper)
-
-    hits = int(np.count_nonzero(mask))
-    # Require a small number of orange-ish pixels; scale minimum by patch size.
-    min_hits = max(6, int((roi.shape[0] * roi.shape[1]) * 0.01))
-    ok = hits >= min_hits
-    logs.logger.template(f"teleporter ready (probe) {ok} hits={hits} min_hits={min_hits}")
-    return ok
-
+    hsv = cv2.cvtColor(roi,cv2.COLOR_BGR2HSV)
+    pixel_hsv = hsv[0, 0]
+    logs.logger.template(f"check orange {np.all(pixel_hsv >= lower_boundary) and np.all(pixel_hsv <= upper_boundary)}")
+    return np.all(pixel_hsv >= lower_boundary) and np.all(pixel_hsv <= upper_boundary)
 
 def white_flash():
     roi = screen.get_screen_roi(500,500,100,100)
@@ -362,12 +332,18 @@ upper_console_bound = bounds[0]["upper_bound"]
 lower_console_bound = bounds[0]["lower_bound"]
 
 def console_strip_bottom():
-    # bottom-most strip used to detect if the console is open (base coords)
-    return screen.get_screen_roi(0, 1419, 2560, 2)
+    if screen.screen_resolution == 1440:
+        roi = screen.get_screen_roi(0,1419,2560,2)
+    else:
+        roi = screen.get_screen_roi(0,1059,1920,2)
+    return roi
 
 def console_strip_middle():
-    # mid strip used to detect if the console is open (base coords)
-    return screen.get_screen_roi(0, 1065, 2560, 2)
+    if screen.screen_resolution == 1440:
+        roi = screen.get_screen_roi(0,1065,2560,2)
+    else:
+        roi = screen.get_screen_roi(0,795,1920,2)
+    return roi 
 
 def console_strip_check(roi):
     gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
@@ -393,11 +369,17 @@ def change_console_mask():
 def output_hsv():
     print("outputs hsv colours so you can change the bounds of functions")
     region = roi_regions["orange"]
-    roi = _grab_region(region)
+    if screen.screen_resolution == 1440:
+        roi = screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
+    else:
+        roi = screen.get_screen_roi(int(region["start_x"] * 0.75), int(region["start_y"] * 0.75), int(region["width"]), int(region["height"]))
 
     hsv = cv2.cvtColor(roi,cv2.COLOR_BGR2HSV)
     print(f"{hsv[0, 0]} -> for orange teleporter lines 248 and 249") 
-    roi = screen.get_screen_roi(0, 1419, 2560, 2)
+    if screen.screen_resolution == 1440:
+        roi = screen.get_screen_roi(0,1419,2560,2)
+    else:
+        roi = screen.get_screen_roi(0,1059,1920,2)
     gray_roi = cv2.cvtColor(console_strip_bottom(), cv2.COLOR_BGR2GRAY)
     average = np.mean(gray_roi)
     print(f"if console was open the average console colour was : {average} go to console.json and set +and - 5 from this in the respected section IE upperbound = average+5 ")
