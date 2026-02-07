@@ -1,3 +1,4 @@
+from logs.alert_panel import AlertPanel
 import discord
 from discord.ext import commands
 from typing import Callable
@@ -190,62 +191,13 @@ async def send_new_logs():
                             suppressed_alerts += drop_n
                             del alert_buffer[:drop_n]
 
-            # Post alert history as separate messages (best-effort, rate-safe).
+
+            # Feed alerts into a single deduped alert panel message (edits in place).
+            # This avoids Discord rate limiting while preserving important debug information.
             if alert_buffer:
-                alert_channel_id = getattr(settings, "log_channel_alerts", None) or settings.log_channel_gacha
-                alert_channel = bot.get_channel(alert_channel_id) if alert_channel_id else None
-                if alert_channel:
-                    sent_messages = 0
-                    while alert_buffer and sent_messages < alert_max_messages_per_tick:
-                        chunk_lines = []
-                        chunk_len = 0
-                        chunk_tasks = set()
-
-                        # Build one message worth of alert lines.
-                        while alert_buffer:
-                            task_ctx, line = alert_buffer[0]
-
-                            # If a single line is huge, truncate it so we never exceed Discord limits.
-                            if (not chunk_lines) and len(line) > 1800:
-                                alert_buffer.pop(0)
-                                truncated = (line[:1800] + "\n") if not line.endswith("\n") else line[:1800]
-                                chunk_lines.append(truncated)
-                                chunk_len += len(truncated)
-                                if task_ctx:
-                                    chunk_tasks.add(task_ctx)
-                                break
-
-                            if chunk_len + len(line) > 1800 and chunk_lines:
-                                break
-                            alert_buffer.pop(0)
-                            chunk_lines.append(line)
-                            chunk_len += len(line)
-                            if task_ctx:
-                                chunk_tasks.add(task_ctx)
-
-                        if not chunk_lines:
-                            break
-
-                        header = "**Alert**"
-                        if len(chunk_tasks) == 1:
-                            only = next(iter(chunk_tasks))
-                            if only and only != "-":
-                                header = f"**Alert** (task: {only})"
-
-                        # Include suppression note once (oldest dropped lines).
-                        if suppressed_alerts:
-                            header += f" (suppressed {suppressed_alerts} older lines)"
-                            suppressed_alerts = 0
-
-                        body = "".join(chunk_lines)
-                        try:
-                            await alert_channel.send(header + "\n```\n" + body + "\n```")
-                        except Exception:
-                            pass
-
-                        sent_messages += 1
-                        if alert_buffer and alert_send_spacing_sec > 0:
-                            await asyncio.sleep(alert_send_spacing_sec)
+                while alert_buffer:
+                    task_ctx, line = alert_buffer.pop(0)
+                    alert_panel.push(task_ctx, line)
 
             await alert_panel.flush_if_due()
 
