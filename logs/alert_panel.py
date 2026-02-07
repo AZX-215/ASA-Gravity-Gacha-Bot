@@ -107,7 +107,11 @@ class AlertPanel:
 
         ch = self.bot.get_channel(self.channel_id)
         if not ch:
-            return
+            # Channel may not be cached; fetch as fallback.
+            try:
+                ch = await self.bot.fetch_channel(self.channel_id)
+            except Exception:
+                return
 
         content = self._format()
         try:
