@@ -15,7 +15,7 @@ import win32con
 import sys
 import pygetwindow as gw
 from pathlib import Path
-from collections import OrderedDict, deque
+from collections import deque
 
 intents = discord.Intents.default()
 pyautogui.FAILSAFE = False
@@ -57,151 +57,101 @@ async def send_new_logs():
     last_sent = ""
 
     # Alerts: WARNING/ERROR/CRITICAL are forwarded to the alerts channel.
-    # Rate-limit safe strategy:
-    #   - Deduplicate repeating alert lines into counters (xN).
-    #   - Maintain a single "Alert panel" message in the alerts channel (edit-in-place).
-    #   - Optionally send immediate one-off messages for CRITICAL with cooldown.
+    # To avoid Discord rate limits during bursts, buffer and send in throttled batches.
     alert_levels = (" - WARNING - ", " - ERROR - ", " - CRITICAL - ")
+    alert_buffer = []  # list[(task_ctx, line)]
+    suppressed_alerts = 0
 
-    alert_channel_id = getattr(settings, "log_channel_alerts", None) or getattr(settings, "log_channel_gacha", None)
-    alert_flush_interval_sec = float(getattr(settings, "alert_flush_interval_sec", 10.0))
-    alert_dedup_window_sec = float(getattr(settings, "alert_dedup_window_sec", 120.0))
-    alert_panel_max_entries = int(getattr(settings, "alert_panel_max_entries", 20))
-    alert_panel_max_chars = int(getattr(settings, "alert_panel_max_chars", 1800))
-    alert_critical_immediate = bool(getattr(settings, "alert_critical_immediate", True))
-    alert_critical_cooldown_sec = float(getattr(settings, "alert_critical_cooldown_sec", 60.0))
+    # Throttle controls (can be overridden in settings.py)
+    alert_send_spacing_sec = float(getattr(settings, "alert_send_spacing_sec", 1.2))
 
-    alert_panel_msg = None
-    last_alert_flush = 0.0
+    # Alert panel (single edited message to avoid Discord rate limits)
+    alert_panel = AlertPanel(
+        bot=bot,
+        channel_id=(getattr(settings, "log_channel_alerts", None) or settings.log_channel_gacha),
+        flush_interval_sec=float(getattr(settings, "alert_flush_interval_sec", 10.0)),
+        dedup_window_sec=float(getattr(settings, "alert_dedup_window_sec", 120.0)),
+        max_entries=int(getattr(settings, "alert_panel_max_entries", 25)),
+        max_chars=int(getattr(settings, "alert_panel_max_chars", 1800)),
+        send_cooldown_sec=float(getattr(settings, "alert_send_cooldown_sec", 2.0)),
+    )
 
-    # key -> dict(count, first_ts, last_ts, line, task, level)
-    alert_store = OrderedDict()
-    critical_last_sent = {}  # key -> monotonic ts
+    alert_max_messages_per_tick = int(getattr(settings, "alert_max_messages_per_tick", 1))
+    alert_max_pending_lines = int(getattr(settings, "alert_max_pending_lines", 600))
 
-    def _alert_level(line: str) -> str:
-        if " - CRITICAL - " in line:
-            return "CRITICAL"
-        if " - ERROR - " in line:
-            return "ERROR"
-        if " - WARNING - " in line:
-            return "WARNING"
-        return "INFO"
-
-    def _normalize_alert_key(line: str) -> str:
-        # Remove leading timestamp if present; keep the semantic portion to dedupe repeats.
-        # Works for both "YYYY-MM-DD HH:MM:SS ..." and "HH:MM:SS - LEVEL - ..." formats.
-        s = line.strip()
-        # strip leading date/time chunk up to first ' - '
-        if " - " in s:
-            parts = s.split(" - ", 1)
-            # If the first part looks like a time/date, drop it.
-            head = parts[0]
-            if any(ch.isdigit() for ch in head) and (":" in head or "-" in head):
-                s = parts[1].strip()
-        return s
-
-    def _add_alert(line: str):
-        nonlocal alert_store
-        now = time.monotonic()
-        key = _normalize_alert_key(line)
-        lvl = _alert_level(line)
-        task_ctx = _extract_task_ctx(line)
-
-        # Expire old keys outside the window so store doesn't grow unbounded.
-        if alert_store:
-            cutoff = now - max(30.0, alert_dedup_window_sec * 4)
-            drop = []
-            for k, v in alert_store.items():
-                if v["last_ts"] < cutoff:
-                    drop.append(k)
-            for k in drop:
-                alert_store.pop(k, None)
-
-        # Dedup / bump
-        if key in alert_store and (now - alert_store[key]["last_ts"]) <= alert_dedup_window_sec:
-            v = alert_store[key]
-            v["count"] += 1
-            v["last_ts"] = now
-            # keep most recent line (in case message differs slightly but normalized same)
-            v["line"] = line
-            v["task"] = task_ctx
-            v["level"] = lvl
-            # move to front (most recent)
-            alert_store.move_to_end(key, last=False)
-        else:
-            alert_store[key] = {
-                "count": 1,
-                "first_ts": now,
-                "last_ts": now,
-                "line": line,
-                "task": task_ctx,
-                "level": lvl,
-            }
-            alert_store.move_to_end(key, last=False)
-
-        # Optional immediate CRITICAL
-        if lvl == "CRITICAL" and alert_critical_immediate:
-            last = critical_last_sent.get(key, 0.0)
-            if (now - last) >= alert_critical_cooldown_sec:
-                critical_last_sent[key] = now
-                return ("CRITICAL", key, task_ctx, line)
-        return None
-
-    def _build_alert_panel_text() -> str:
-        if not alert_store:
-            return "**Alerts**\n(No recent WARNING/ERROR/CRITICAL lines)\n"
-
-        lines_out = []
-        now = time.monotonic()
-        n = 0
-        for k, v in alert_store.items():
-            if n >= alert_panel_max_entries:
-                break
-            age = int(now - v["last_ts"])
-            cnt = v["count"]
-            lvl = v["level"]
-            task = v["task"]
-            # Keep line readable; show count/age/task prefix.
-            base = v["line"].strip()
-            prefix = f"[{lvl}]"
-            if task and task != "-":
-                prefix += f"[{task}]"
-            prefix += f" x{cnt} (last {age}s)"
-            lines_out.append(prefix + " :: " + base)
-            n += 1
-
-        body = "\n".join(lines_out)
-        # Ensure we stay under Discord limit.
-        if len(body) > alert_panel_max_chars:
-            body = body[:alert_panel_max_chars] + "\n...(truncated)"
-        return "**Alerts** (deduped)\n```\n" + body + "\n```"
-def _toggle(v: bool) -> str:
+    def _toggle(v: bool) -> str:
         return "ON" if v else "OFF"
 
     def _status_block() -> str:
         # Settings toggles
         pego = bool(getattr(settings, "pego_enabled", True))
         gacha = bool(getattr(settings, "gacha_enabled", True))
-        crafting = bool(getattr(settings, "crafting", False))            # Flush alert panel (edit-in-place) on interval.
-            if alert_channel_id:
-                now = time.monotonic()
-                if (now - last_alert_flush) >= alert_flush_interval_sec:
-                    alert_channel = bot.get_channel(alert_channel_id)
-                    if alert_channel:
-                        alert_text = _build_alert_panel_text()
-                        try:
-                            if alert_panel_msg is None:
-                                alert_panel_msg = await alert_channel.send(alert_text)
-                            else:
-                                await alert_panel_msg.edit(content=alert_text)
-                        except Exception:
-                            try:
-                                alert_panel_msg = await alert_channel.send(alert_text)
-                            except Exception:
-                                pass
-                    last_alert_flush = now
+        crafting = bool(getattr(settings, "crafting", False))
+        spark = bool(getattr(settings, "sparkpowder_enabled", False))
+        gun = bool(getattr(settings, "gunpowder_enabled", False))
+        decay = bool(getattr(settings, "decay_prevention_enabled", False))
 
-ail_text) > max_tail:
+        enabled_line = (
+            f"Enabled: pego={_toggle(pego)} | gacha={_toggle(gacha)} | "
+            f"crafting={_toggle(crafting)} (spark={_toggle(spark)}, gun={_toggle(gun)}) | "
+            f"decay={_toggle(decay)}"
+        )
+
+        # Scheduler stats (best-effort)
+        try:
+            if getattr(task_manager, "started", False) and getattr(task_manager, "scheduler", None):
+                sch = task_manager.scheduler
+                active_n = len(getattr(sch.active_queue, "queue", []))
+                waiting_n = len(getattr(sch.waiting_queue, "queue", []))
+                prev = getattr(sch, "prev_task_name", "")
+                counts = getattr(sch, "loaded_counts", None)
+
+                counts_line = ""
+                if isinstance(counts, dict):
+                    counts_line = (
+                        f"Loaded: pego={counts.get('pego', 0)}, gacha={counts.get('gacha', 0)}, "
+                        f"collect={counts.get('collect', 0)}, spark={counts.get('sparkpowder', 0)}, "
+                        f"gun={counts.get('gunpowder', 0)}, decay={counts.get('decay_prevention', 0)}, "
+                        f"render={counts.get('render', 0)}"
+                    )
+
+                queue_line = f"Queues: active={active_n} | waiting={waiting_n}"
+                if prev:
+                    queue_line += f" | last={prev}"
+                if counts_line:
+                    return enabled_line + "\n" + counts_line + "\n" + queue_line
+                return enabled_line + "\n" + queue_line
+        except Exception:
+            pass
+
+        return enabled_line
+
+    def _extract_task_ctx(line: str) -> str:
+        """Extract the task context from a formatted log line.
+
+        Expected format (from logs.gachalogs):
+            HH:MM:SS - LEVEL - TASK - func - message
+        """
+        try:
+            parts = line.split(" - ")
+            if len(parts) >= 3:
+                ctx = parts[2].strip()
+                return ctx if ctx else "-"
+        except Exception:
+            pass
+        return "-"
+
+    def _build_panel_text() -> str:
+        # Avoid including a constantly-changing timestamp in the content; Discord already shows
+        # the message "edited" time, and we only want to edit when something actually changed.
+        header = "**Live logs** (updates every 5s)\n" + _status_block()
+        tail_text = "".join(tail_lines)
+
+        # Hard cap to stay within Discord limits.
+        max_total = 1950
+        overhead = len(header) + len("\n```\n\n```")
+        max_tail = max(0, max_total - overhead)
+        if len(tail_text) > max_tail:
             tail_text = tail_text[-max_tail:]
 
         return header + "\n```\n" + tail_text + "\n```"
@@ -234,17 +184,8 @@ ail_text) > max_tail:
                 for line in new_text.splitlines(True):
                     tail_lines.append(line)
                     if any(level in line for level in alert_levels):
-                        crit = _add_alert(line)
-                        if crit:
-                            # send CRITICAL immediate best-effort; panel still handles dedup.
-                            try:
-                                _lvl, _key, _task, _line = crit
-                                _ch = bot.get_channel(alert_channel_id) if alert_channel_id else None
-                                if _ch:
-                                    await _ch.send(f"**CRITICAL** (task: {_task})\n```\n{_line.strip()}\n```")
-                            except Exception:
-                                pass
-s:
+                        alert_buffer.append((_extract_task_ctx(line), line))
+                        if len(alert_buffer) > alert_max_pending_lines:
                             drop_n = len(alert_buffer) - alert_max_pending_lines
                             suppressed_alerts += drop_n
                             del alert_buffer[:drop_n]
@@ -305,6 +246,8 @@ s:
                         sent_messages += 1
                         if alert_buffer and alert_send_spacing_sec > 0:
                             await asyncio.sleep(alert_send_spacing_sec)
+
+            await alert_panel.flush_if_due()
 
             panel_text = _build_panel_text()
             if panel_text != last_sent:
