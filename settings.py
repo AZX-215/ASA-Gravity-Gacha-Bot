@@ -2,6 +2,7 @@ screen_resolution: int = 1440 # No longer in use.
 base_path: str = None # No longer in use.
 enable_resolution_mapping: bool = True # Controls how 2560x1440-authored coordinates/ROIs are mapped to your current ARK client resolution.
 # (True) keeps the existing multi-resolution behavior.
+
 lag_offset: float = 1.4
 ui_layout_mode: str = "centered_16_9"  # "centered_16_9" (default, recommended for ultrawide) or "stretch"
 use_hdr_templates: bool = False # If True and an icons*_hdr folder exists (e.g., icons1440_hdr, icons2160_hdr), templates will load from it.
@@ -56,30 +57,20 @@ log_active_queue: int = 1445620377177817149
 log_wait_queue: int = 1332520069225512961
 queue_preview_limit: int = 10
 
-
 # Debug
 alert_send_spacing_sec: float = 1.5 # Discord alert forwarding throttles (prevents API rate limits during bursts)
 alert_max_messages_per_tick: int = 1 # - Max number of alert messages to post per send_new_logs tick (tick = 5 seconds)
 alert_max_pending_lines: int = 600 # - Backlog is buffered and drained over time; oldest lines are dropped after alert_max_pending_lines
 
-discord_api_key: str = "apikey" # Replace Key
-
-
-
-if __name__ =="__main__":
-
-    pass
-
-
-
-
-
-
-
-
-# --- Discord alert panel / rate limiting controls (added) ---
+# Discord alert panel / rate limiting controls
 alert_flush_interval_sec: float = 10.0
 alert_dedup_window_sec: float = 120.0
 alert_panel_max_entries: int = 25
 alert_panel_max_chars: int = 1800
 alert_send_cooldown_sec: float = 2.0
+
+discord_api_key: str = "key_goes_here" # Replace Key
+
+if __name__ =="__main__":
+
+    pass
