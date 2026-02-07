@@ -2,6 +2,7 @@ import ctypes
 import time
 import local_player
 import windows
+import pyautogui
 import logs.gachalogs as logs
 import ASA.player.console
 import ASA.player.player_state
@@ -16,7 +17,7 @@ keymap = {
     "tab":0x09,"escape" :0x1B,"return":0x0D, "enter":0x0D, "leftcontrol":0xA2, "zero": 0x30,
     "one":0x31, "two":0x32, "three":0x33 , "four":0x34 , "five":0x35 , "six":0x36 , "seven":0x37,
     "eight":0x38, "nine":0x39, "thumbmousebutton": 0x05, "thumbmousebutton2": 0x06, "spacebar": 0x20,"hyphen":0xBD,
-    "leftshift":0xA0 , "tilde":0xC0, "up":0x26, "down":0x28, "left":0x25, "right":0x27
+    "leftshift":0xA0 , "tilde":0xC0
 }
 
 default_keymap = { 
@@ -49,54 +50,40 @@ def keymap_return(key_input):
         return vk_code
 
 def press_key(input_action):
-    vk_code = keymap_return(local_player.get_input_settings(input_action))
+    """Press an ARK input binding name or a raw key string.
 
-    ctypes.windll.user32.PostMessageW(hwnd, WM_KEYDOWN , vk_code, 0)
+    This uses SendInput (via the local pyautogui stub) because PostMessage-based
+    key injection is intermittently ignored by ARK/UE input in long runs.
+    """
+    try:
+        key_name = local_player.get_input_settings(input_action)
+    except Exception:
+        key_name = input_action
+
+    vk_code = keymap_return(key_name)
+    try:
+        pyautogui._press_vk(vk_code)
+    except Exception:
+        # Fallback: attempt named key press (best effort).
+        try:
+            pyautogui.press(str(key_name))
+        except Exception:
+            pass
     time.sleep(0.05)
-    ctypes.windll.user32.PostMessageW(hwnd, WM_KEYUP , vk_code, 0)
 
 def post_charecter(char):
-    ctypes.windll.user32.PostMessageW(hwnd, WM_CHAR, ord(char), 0)
+    """Back-compat typo: type a single character."""
+    pyautogui.write(str(char), interval=0.0)
 
 def write(text):
-    for c in text:
-        post_charecter(c)
-        
-def ctrl_a(): # hotkey for sending ctrl a 
-    ctypes.windll.user32.SendMessageW(windows.hwnd, WM_KEYDOWN, 0x11, 0)
-    time.sleep(0.1)
-    ctypes.windll.user32.SendMessageW(windows.hwnd, WM_KEYDOWN, 0x41, 0)
-    time.sleep(0.1)  
-    
-    ctypes.windll.user32.SendMessageW(windows.hwnd, WM_KEYUP, 0x41, 0)
-    time.sleep(0.1)
-    ctypes.windll.user32.SendMessageW(windows.hwnd, WM_KEYUP, 0x11, 0)
+    """Type text into the active ARK UI control (console/search)."""
+    pyautogui.write(text, interval=0.002)
 
+def ctrl_a():
+    """Select all in the currently focused text field."""
+    pyautogui.hotkey("ctrl", "a")
+    time.sleep(0.05)
 
-def ctrl_c():  # hotkey for sending ctrl+c (targeted to ARK window handle)
-    ctypes.windll.user32.SendMessageW(windows.hwnd, WM_KEYDOWN, 0x11, 0)
-    time.sleep(0.06)
-    ctypes.windll.user32.SendMessageW(windows.hwnd, WM_KEYDOWN, 0x43, 0)  # 'C'
-    time.sleep(0.06)
-    ctypes.windll.user32.SendMessageW(windows.hwnd, WM_KEYUP, 0x43, 0)
-    time.sleep(0.06)
-    ctypes.windll.user32.SendMessageW(windows.hwnd, WM_KEYUP, 0x11, 0)
-
-def press_vk(vk_code: int, hold: float = 0.05):
-    """Press a raw virtual-key code on the ARK window."""
-    ctypes.windll.user32.PostMessageW(hwnd, WM_KEYDOWN, vk_code, 0)
-    time.sleep(hold)
-    ctypes.windll.user32.PostMessageW(hwnd, WM_KEYUP, vk_code, 0)
-
-def key_down(input_action: str):
-    """Key-down only (for holds), targeted to the ARK window."""
-    vk_code = keymap_return(local_player.get_input_settings(input_action))
-    ctypes.windll.user32.PostMessageW(hwnd, WM_KEYDOWN, vk_code, 0)
-
-def key_up(input_action: str):
-    """Key-up only (for holds), targeted to the ARK window."""
-    vk_code = keymap_return(local_player.get_input_settings(input_action))
-    ctypes.windll.user32.PostMessageW(hwnd, WM_KEYUP, vk_code, 0)
 """
 FUNCTIONS FOR MOUSE MOVEMENT
 """

@@ -65,12 +65,6 @@ alert_send_spacing_sec: float = 1.2
 alert_max_messages_per_tick: int = 1
 alert_max_pending_lines: int = 600
 
-# Template matching fallbacks
-template_fallback_no_bounds: bool = True
-
-# Alert dedupe window (seconds)
-alert_dedupe_window_sec: int = 60
-
 discord_api_key: str = "API_KEY_GOES_HERE"
 
 

@@ -14,16 +14,17 @@ def _grab_region(region: dict):
     return screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
 
 
-def _read_icon(item: str, force_hdr=None):
+def _read_icon(item: str):
     """Load the template icon for the current resolution.
 
     Template folders are keyed by vertical resolution:
       - icons1440, icons1080, icons2160, icons2880, ...
 
-    If force_hdr is:
-      - None: follow settings.use_hdr_templates (existing behavior)
-      - True: prefer icons{height}_hdr/ when present
-      - False: prefer icons{height}/ (SDR set)
+    If settings.use_hdr_templates is True and an HDR folder exists, the loader prefers:
+      - icons{height}_hdr/
+
+    Otherwise it uses:
+      - icons{height}/
 
     If an exact-match folder is missing, it falls back to the 1440 set and resizes using
     screen.scale_x/scale_y for 4K/5K.
@@ -33,8 +34,7 @@ def _read_icon(item: str, force_hdr=None):
 
     def _pick_dir(h: int) -> str:
         base = f"icons{h}"
-        want_hdr = getattr(settings, "use_hdr_templates", False) if force_hdr is None else bool(force_hdr)
-        if want_hdr:
+        if getattr(settings, "use_hdr_templates", False):
             hdr = f"{base}_hdr"
             if os.path.isdir(hdr):
                 return hdr
@@ -120,103 +120,53 @@ def template_await_false(func,sleep_amount:float,*args) -> bool:
         count += 1
     return func(*args)
 
-def _match_template(gray_roi: np.ndarray, gray_icon: np.ndarray) -> float:
-    res = cv2.matchTemplate(gray_roi, gray_icon, cv2.TM_CCOEFF_NORMED)
-    _, max_val, _, _ = cv2.minMaxLoc(res)
-    return float(max_val)
-
 def check_template(item: str, threshold: float) -> bool:
-    """Resolution-aware template match with HDR + mask fallbacks.
-
-    Primary path:
-      - Masked (bright-foreground) match using the currently-selected icon set.
-
-    Fallbacks (only if primary fails):
-      - Try the opposite icon set (HDR vs SDR).
-      - Try an unmasked grayscale match (less strict) with a slightly reduced threshold.
-
-    This is intended to stabilize detection across HDR/SDR and minor gamma/contrast variance
-    without changing call sites.
-    """
     region = roi_regions[item]
     roi = _grab_region(region)
 
     lower_boundary = np.array([0, 30, 200])
     upper_boundary = np.array([255, 255, 255])
+
     gray_roi = _masked_gray(roi, lower_boundary, upper_boundary)
 
-    def _attempt(icon_img, use_bounds: bool, thr: float) -> float:
-        if icon_img is None:
-            return -1.0
-        if use_bounds:
-            g_icon = _masked_gray(icon_img, lower_boundary, upper_boundary)
-            return _match_template(gray_roi, g_icon)
-        # no-bounds (full grayscale)
-        g_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-        g_icon = cv2.cvtColor(icon_img, cv2.COLOR_BGR2GRAY)
-        return _match_template(g_roi, g_icon)
-
     icon = _read_icon(item)
-    score = _attempt(icon, True, threshold)
+    if icon is None:
+        return False
+    gray_icon = _masked_gray(icon, lower_boundary, upper_boundary)
 
-    if score > threshold:
-        logs.logger.template(f"{item} found:{score}")
+    res = cv2.matchTemplate(gray_roi, gray_icon, cv2.TM_CCOEFF_NORMED)
+    _, max_val, _, _ = cv2.minMaxLoc(res)
+
+    if max_val > threshold:
+        logs.logger.template(f"{item} found:{max_val}")
         return True
-
-    # Fallback 1: opposite HDR/SDR icon set (if it exists).
-    alt_icon = _read_icon(item, force_hdr=not getattr(settings, "use_hdr_templates", False))
-    if alt_icon is not None:
-        alt_score = _attempt(alt_icon, True, threshold)
-        if alt_score > threshold:
-            logs.logger.template(f"{item} found:{alt_score} (alt icon set)")
-            return True
-        score = max(score, alt_score)
-
-    # Fallback 2: no-bounds match (reduce threshold slightly; clamp to avoid too many false positives).
-    if getattr(settings, "template_fallback_no_bounds", True):
-        fb_thr = max(0.55, float(threshold) - 0.08)
-        nb_score = _attempt(icon, False, fb_thr)
-        if nb_score > fb_thr:
-            logs.logger.template(f"{item} found:{nb_score} (no-bounds fallback thr={fb_thr})")
-            return True
-        if alt_icon is not None:
-            nb2 = _attempt(alt_icon, False, fb_thr)
-            if nb2 > fb_thr:
-                logs.logger.template(f"{item} found:{nb2} (alt+no-bounds fallback thr={fb_thr})")
-                return True
-            score = max(score, nb_score, nb2)
-        else:
-            score = max(score, nb_score)
-
-    logs.logger.template(f"{item} not found:{score} threshold:{threshold}")
+    logs.logger.template(f"{item} not found:{max_val} threshold:{threshold}")
     return False
+
 
 def check_template_no_bounds(item: str, threshold: float) -> bool:
     region = roi_regions[item]
     roi = _grab_region(region)
 
-    gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+    lower_boundary = np.array([0, 0, 0])
+    upper_boundary = np.array([255, 255, 255])
+
+    gray_roi = _masked_gray(roi, lower_boundary, upper_boundary)
+
     icon = _read_icon(item)
     if icon is None:
         return False
-    gray_icon = cv2.cvtColor(icon, cv2.COLOR_BGR2GRAY)
+    gray_icon = _masked_gray(icon, lower_boundary, upper_boundary)
 
-    score = _match_template(gray_roi, gray_icon)
-    if score > threshold:
-        logs.logger.template(f"{item} found:{score}")
+    res = cv2.matchTemplate(gray_roi, gray_icon, cv2.TM_CCOEFF_NORMED)
+    _, max_val, _, _ = cv2.minMaxLoc(res)
+
+    if max_val > threshold:
+        logs.logger.template(f"{item} found:{max_val}")
         return True
-
-    # Opposite icon set fallback for HDR/SDR mismatch.
-    alt_icon = _read_icon(item, force_hdr=not getattr(settings, "use_hdr_templates", False))
-    if alt_icon is not None:
-        alt_score = _match_template(gray_roi, cv2.cvtColor(alt_icon, cv2.COLOR_BGR2GRAY))
-        if alt_score > threshold:
-            logs.logger.template(f"{item} found:{alt_score} (alt icon set)")
-            return True
-        score = max(score, alt_score)
-
-    logs.logger.template(f"{item} not found:{score} threshold:{threshold}")
+    logs.logger.template(f"{item} not found:{max_val} threshold:{threshold}")
     return False
+
 
 def return_location(item: str, threshold: float):
     # Assumes the check for the item on the screen has already been done.

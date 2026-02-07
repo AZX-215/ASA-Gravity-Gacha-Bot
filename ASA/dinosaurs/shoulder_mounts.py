@@ -9,11 +9,12 @@ import time
 import settings
 import ASA.config 
 import screen
+import pyautogui
 import local_player
 
 region = template.roi_regions["access_inv"]
 def access_shoulder_mount():
-    utils.key_down("Reload")
+    pyautogui.keyDown(chr(utils.keymap_return(local_player.get_input_settings("Reload"))))
     # check for the location of the access_inv
     if template.template_await_true(template.check_template_no_bounds,1,"access_inv",0.7):
         x , y = template.return_location("access_inv",0.7) 
@@ -23,7 +24,7 @@ def access_shoulder_mount():
         y = y0 + y
         windows.move_mouse(x+20,y+20)
         time.sleep(1)
-        utils.key_up("Reload")
+        pyautogui.keyUp(chr(utils.keymap_return(local_player.get_input_settings("Reload"))))
         
         if template.template_await_true(template.check_template,2,"inventory",0.7):
             logs.logger.debug(f"inventory opened")

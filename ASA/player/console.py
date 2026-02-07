@@ -1,41 +1,35 @@
-import re
-import time
-import win32clipboard
-
-import ASA.config
+import ASA.player.player_inventory
 import ASA.player.player_state
-import logs.gachalogs as logs
-import settings
 import template
+import logs.gachalogs as logs
 import utils
 import windows
-import screen
-
+import variables
+import time
+import settings
+import ASA.config
+import pyautogui
+import win32clipboard
 
 last_command = ""
 
 
-def is_open() -> bool:
-    # Prefer strip checks (fast) with a template fallback (more robust in HDR/contrast variance).
-    try:
-        if template.console_strip_check(template.console_strip_bottom()) or template.console_strip_check(template.console_strip_middle()):
-            return True
-    except Exception:
-        pass
-    try:
-        return template.check_template_no_bounds("console", 0.60)
-    except Exception:
-        return False
+def is_open():
+    return template.console_strip_check(template.console_strip_bottom()) or template.console_strip_check(template.console_strip_middle())
 
 
-def _open_clipboard_retry(tries: int = 25, delay: float = 0.02) -> bool:
+def _open_clipboard_retry(tries: int = 20, delay: float = 0.02) -> bool:
+    """
+    OpenClipboard can intermittently fail when another process briefly holds the clipboard.
+    Retry with small backoff to avoid crashing / returning None.
+    """
     for _ in range(tries):
         try:
             win32clipboard.OpenClipboard()
             return True
         except Exception:
             time.sleep(delay)
-            delay = min(delay * 1.3, 0.25)
+            delay = min(delay * 1.3, 0.2)
     return False
 
 
@@ -54,6 +48,7 @@ def _set_clipboard_text(text: str) -> bool:
         try:
             win32clipboard.SetClipboardText(text, win32clipboard.CF_UNICODETEXT)
         except Exception:
+            # Fallback if CF_UNICODETEXT isn't available in some environments
             win32clipboard.SetClipboardText(text)
         return True
     except Exception:
@@ -69,6 +64,7 @@ def _get_clipboard_text() -> str | None:
         try:
             return win32clipboard.GetClipboardData(win32clipboard.CF_UNICODETEXT)
         except Exception:
+            # Might be CF_TEXT or empty
             try:
                 return win32clipboard.GetClipboardData()
             except Exception:
@@ -77,48 +73,30 @@ def _get_clipboard_text() -> str | None:
         _close_clipboard_safely()
 
 
-def _console_focus_input() -> bool:
-    # Click inside the console input line (bottom area). This improves reliability for Ctrl+A/C.
-    if not is_open():
+def enter_data(data: str):
+    """
+    Original behavior: paste command via clipboard, with optional up-arrow optimization.
+    Hardened: clipboard open/write retries; fallback to typing if clipboard remains busy.
+    """
+    global last_command
+    if ASA.config.up_arrow and data == last_command:
+        logs.logger.debug(f"using uparrow to put {data} into the console")
+        pyautogui.press("up")
+    else:
+        logs.logger.debug(f"using clipboard to put {data} into the console")
+        ok = _set_clipboard_text(data)
+        if ok:
+            pyautogui.hotkey("ctrl", "v")
+        else:
+            # Clipboard is busy; type as a safe fallback (slower, but avoids failure)
+            pyautogui.write(data, interval=0.002)
+    last_command = data
+
+
+def _looks_like_ccc(payload: str) -> bool:
+    if not payload:
         return False
-    try:
-        x = screen.map_x(220)
-        y = screen.map_y(1412)
-        windows.move_mouse(x, y)
-        windows.click(x, y)
-        time.sleep(0.06 * settings.lag_offset)
-        return True
-    except Exception:
-        return False
-
-
-def _open_console() -> bool:
-    for attempt in range(1, ASA.config.console_open_attempts + 1):
-        utils.press_key("ConsoleKeys")
-        template.template_await_true(is_open, 1)
-        if is_open():
-            return True
-        time.sleep(0.06 * settings.lag_offset)
-    logs.logger.error(f"console didnt open after {ASA.config.console_open_attempts} attempts")
-    return False
-
-
-def _close_console():
-    # Console is a toggle; attempt to close if open.
-    if not is_open():
-        return
-    for _ in range(3):
-        utils.press_key("ConsoleKeys")
-        template.template_await_false(is_open, 1)
-        if not is_open():
-            return
-        time.sleep(0.06 * settings.lag_offset)
-
-
-def _looks_like_ccc_line(line: str) -> bool:
-    if not line:
-        return False
-    parts = line.strip().split()
+    parts = payload.strip().split()
     if len(parts) < 5:
         return False
     good = 0
@@ -131,108 +109,129 @@ def _looks_like_ccc_line(line: str) -> bool:
     return good >= 5
 
 
-def _parse_ccc_text(payload: str) -> list[str] | None:
-    if not payload:
+
+
+def _extract_last_ccc_line(text: str) -> str | None:
+    """Return the last line in text that looks like CCC output."""
+    if not text:
         return None
-
-    # Prefer last matching line (console copies can be multi-line).
-    lines = [ln.strip() for ln in payload.splitlines() if ln.strip()]
+    lines = [ln.strip() for ln in str(text).splitlines() if ln.strip()]
     for ln in reversed(lines):
-        if _looks_like_ccc_line(ln):
-            return ln.split()[:7]
-
-    # Fallback: find 5+ floats anywhere (e.g., if formatting is odd).
-    nums = re.findall(r"-?\d+(?:\.\d+)?", payload)
-    if len(nums) >= 5:
-        return nums[:7]
+        if _looks_like_ccc(ln):
+            return ln
+    # Sometimes CCC is already a single-line payload without newlines
+    payload = str(text).strip()
+    if _looks_like_ccc(payload):
+        return payload
     return None
 
 
-def _poll_clipboard_change(sentinel: str, timeout_s: float) -> str | None:
-    end = time.time() + timeout_s
+def _force_copy_console_for_ccc() -> str | None:
+    """Best-effort deterministic CCC retrieval when ARK stops updating clipboard.
+
+    This uses Ctrl+A / Ctrl+C while the console is open to copy console text, then extracts
+    the newest line that looks like CCC output.
+
+    Safety: only runs if the console is confirmed open immediately before each hotkey.
+    """
+    if not is_open():
+        return None
+
+    sentinel = f"__CCC_FORCECOPY__{int(time.time()*1000)}"
+    _set_clipboard_text(sentinel)
+
+    # Ensure console stays open before sending any copy hotkeys
+    if not is_open():
+        return None
+
+    # Select all and copy (requires console focus)
+    pyautogui.hotkey("ctrl", "a")
+    time.sleep(0.05 * settings.lag_offset)
+    if not is_open():
+        return None
+
+    pyautogui.hotkey("ctrl", "c")
+    time.sleep(0.05 * settings.lag_offset)
+
+    # Poll for clipboard change and parse
+    poll_end = time.time() + (0.8 * settings.lag_offset)
     last = None
-    while time.time() < end:
+    while time.time() < poll_end:
         txt = _get_clipboard_text()
         if txt is None:
             time.sleep(0.05 * settings.lag_offset)
             continue
         if txt != sentinel and txt != last:
             last = txt
-            if txt and txt.strip():
-                return txt
+            line = _extract_last_ccc_line(txt)
+            if line:
+                return line
         time.sleep(0.05 * settings.lag_offset)
+
     return None
 
 
-def _type_command(text: str):
-    # Targeted WM_CHAR typing to the ARK window (avoids focus issues from global hotkeys).
-    utils.ctrl_a()
-    utils.write(text)
-
-
-def _force_copy_console(sentinel: str) -> list[str] | None:
-    # Deterministic recovery: copy console content into clipboard and parse the last CCC line.
-    if not is_open():
-        return None
-    if not _console_focus_input():
-        return None
-
-    _set_clipboard_text(sentinel)
-    time.sleep(0.03 * settings.lag_offset)
-
-    # Ctrl+A / Ctrl+C must only be sent when console is confirmed open, or 'C' can reach gameplay.
-    if not is_open():
-        return None
-    utils.ctrl_a()
-    time.sleep(0.04 * settings.lag_offset)
-    utils.ctrl_c()
-
-    txt = _poll_clipboard_change(sentinel, timeout_s=0.8 * settings.lag_offset)
-    return _parse_ccc_text(txt or "")
-
-
 def console_ccc():
-    """Return CCC data as a token list (x y z pitch yaw ...).
-
-    Reliability changes vs original:
-      - Command entry uses targeted WM_CHAR typing (not Ctrl+V / pyautogui), so the bot is not dependent on window focus.
-      - Clipboard access is retry/backoff hardened.
-      - If the game stops auto-copying CCC to clipboard on long runs, we fall back to a safe *in-console* copy
-        (Ctrl+A/Ctrl+C) *only when console is verified open* to avoid crouch/punch side effects.
     """
-    for attempt in range(1, ASA.config.console_ccc_attempts + 1):
-        logs.logger.debug(f"trying to get ccc data {attempt} / {ASA.config.console_ccc_attempts}")
+    Matches the original bot's logic (run ccc, then read clipboard) but makes it reliable:
+      - retries clipboard open/read
+      - sets sentinel before running ccc, then polls for clipboard to update
+      - validates payload shape so stale clipboard content won't be misread as ccc
+    Important: does NOT use Ctrl+C, to avoid crouch/punch if console focus slips.
+    """
+    data = None
+    attempts = 0
 
-        # Keep this - it prevents CCC runs while stuck in inventories/menus.
-        ASA.player.player_state.reset_state()
+    while data is None:
+        attempts += 1
+        logs.logger.debug(f"trying to get ccc data {attempts} / {ASA.config.console_ccc_attempts}")
+        ASA.player.player_state.reset_state()  # ensure we can open console
 
-        if not _open_console():
-            continue
+        # Open console (original pattern)
+        count = 0
+        while not is_open():
+            count += 1
+            utils.press_key("ConsoleKeys")
+            template.template_await_true(is_open, 1)
+            if count >= ASA.config.console_open_attempts:
+                logs.logger.error(f"console didnt open after {count} attempts")
+                break
 
-        _console_focus_input()
+        if is_open():
+            sentinel = f"__CCC_SENTINEL__{int(time.time()*1000)}"
+            _set_clipboard_text(sentinel)
 
-        sentinel = f"__CCC_SENTINEL__{int(time.time()*1000)}"
-        _set_clipboard_text(sentinel)
+            enter_data("ccc")
+            time.sleep(0.2 * settings.lag_offset)
+            utils.press_key("Enter")
 
-        # Run CCC
-        _type_command("ccc")
-        time.sleep(0.10 * settings.lag_offset)
-        utils.press_key("Enter")
+            # Poll for clipboard change (lag tolerant)
+            poll_end = time.time() + (1.5 * settings.lag_offset)
+            last = None
+            while time.time() < poll_end:
+                txt = _get_clipboard_text()
+                if txt is None:
+                    time.sleep(0.05 * settings.lag_offset)
+                    continue
+                if txt != sentinel and txt != last:
+                    last = txt
+                    candidate = (txt or "").strip()
+                    candidate_line = _extract_last_ccc_line(candidate)
+                    if candidate_line and _looks_like_ccc(candidate_line):
+                        data = candidate_line
+                        break
+                time.sleep(0.05 * settings.lag_offset)
 
-        # Primary path: CCC auto-copies to clipboard
-        txt = _poll_clipboard_change(sentinel, timeout_s=1.2 * settings.lag_offset)
-        parsed = _parse_ccc_text(txt or "")
-        if parsed:
-            _close_console()
-            return parsed
+            # Deterministic fallback: if clipboard never updates, copy console text and extract CCC line.
+            if data is None:
+                forced = _force_copy_console_for_ccc()
+                if forced and _looks_like_ccc(forced):
+                    data = forced
 
-        # Recovery path: deterministic copy from the console UI itself
-        parsed = _force_copy_console(sentinel)
-        if parsed:
-            _close_console()
-            return parsed
+        if attempts >= ASA.config.console_ccc_attempts:
+            logs.logger.error(f"CCC is still returning NONE after {attempts} attempts")
+            break
 
-        _close_console()
-
-    logs.logger.error(f"CCC is still returning NONE after {ASA.config.console_ccc_attempts} attempts")
+    if data is not None:
+        return data.split()
     return None
