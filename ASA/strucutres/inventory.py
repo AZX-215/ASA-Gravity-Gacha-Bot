@@ -16,6 +16,19 @@ inv_slots = {
 }
 def is_open():
     return template.check_template("inventory",0.7)
+
+def auto_stack():
+    """Click the Auto Stack button in the structure inventory, if present."""
+    try:
+        # Button is in the top-right of the structure inventory panel.
+        if template.check_template("auto_stack", 0.75) or template.check_template("auto_stack_icon", 0.70):
+            windows.click(variables.get_pixel_loc("auto_stack_x"), variables.get_pixel_loc("auto_stack_y"))
+            time.sleep(0.25 * settings.lag_offset)
+            return True
+    except Exception as e:
+        logs.logger.error(f"auto_stack failed: {e}")
+    return False
+
     
 def open():
     attempts = 0 
@@ -38,25 +51,7 @@ def open():
         if attempts >= ASA.config.inventory_open_attempts:
             logs.logger.error(f"unable to open up the objects inventory")
             break
-    time.sleep(0.4*settings.lag_offset)
-
-def auto_stack():
-    """Click the AUTO STACK button once if present (structure/tame inventories).
-    Safe no-op if the button isn't visible.
-    """
-    if not is_open():
-        return False
-    # Only click if the button is visible in its ROI.
-    try:
-        if not template.check_template("auto_stack", 0.70):
-            return False
-    except Exception:
-        return False
-
-    windows.click(variables.get_pixel_loc("auto_stack_x"), variables.get_pixel_loc("auto_stack_y"))
-    time.sleep(0.25*settings.lag_offset)
-    return True
-    
+    time.sleep(0.4*settings.lag_offset)    
 def close():
     attempts = 0
     while is_open():

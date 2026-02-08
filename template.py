@@ -10,7 +10,6 @@ import json
 
 
 roi_regions = {
-    "auto_stack": {"start_x":2137, "start_y":175, "width":182, "height":125},
     "bed_radical": {"start_x":1120, "start_y":345 ,"width":250 ,"height":250},
     "beds_title": {"start_x":100, "start_y":100 ,"width":740 ,"height":180},
     "console": {"start_x":0, "start_y":1400 ,"width":50 ,"height":40},
@@ -39,7 +38,9 @@ roi_regions = {
     "chem_bench":{"start_x":1100, "start_y":245 ,"width":355 ,"height":70},
     "megalab": {"start_x":1100, "start_y":245 ,"width":355 ,"height":70},
     "indi_forge":{"start_x":1100, "start_y":245 ,"width":355 ,"height":70},
-    "access_inv":{"start_x":550, "start_y":450 ,"width":1670 ,"height":880}
+    "access_inv":{"start_x":550, "start_y":450 ,"width":1670 ,"height":880},
+    "auto_stack": {"start_x": 2137, "start_y": 175, "width": 182, "height": 125},
+    "auto_stack_icon": {"start_x": 2137, "start_y": 175, "width": 182, "height": 125},
 }
 def template_await_true(func,sleep_amount:float,*args) -> bool:
     count = 0 

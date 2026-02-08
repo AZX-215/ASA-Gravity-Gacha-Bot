@@ -22,8 +22,6 @@ data = {
     "first_bed_slot_y": 300,
     "close_inv_x": 2400,
     "close_inv_y": 90,
-    "auto_stack_x": 2228,
-    "auto_stack_y": 238,
     # Structure-side tabs (right panel) for inventories like Megalab/ChemBench
     # (1440p baseline; auto-scaled to 1080p via get_pixel_loc)
     "structure_inventory_tab_x": 1695,
@@ -38,7 +36,9 @@ data = {
     "buff_button_y": 1180,
     "drop_all_obj_x":1978,
     "back_button_tp_x": 240,
-    "back_button_tp_y": 1285
+    "back_button_tp_y": 1285,
+    "auto_stack_x": 2230,
+    "auto_stack_y": 245,
 }
 
 def get_pixel_loc(location):
