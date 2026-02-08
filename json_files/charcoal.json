@@ -1,17 +1,170 @@
 [
   {
-    "name": "charcoal_station_1",
-    "teleporter": "charcoal_station_1",
-    "station_yaw": 0.0,
-
-    "deposit_teleporter": "dedi_deposit_charcoal",
-    "deposit_yaw": 0.0,
-
-    "wood_withdraw_teleporter_1": "wood_dedi_station_1",
-    "wood_withdraw_teleporter_2": "wood_dedi_station_2",
-
-    "height": 3,
-    "delay": 900,
-    "initial_delay": 0
+    "name": "SN_FORGE_#001",
+    "teleporter": "SN_FORGE_#001",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 1
+  },
+  {
+    "name": "SN_FORGE_#002",
+    "teleporter": "SN_FORGE_#002",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 2
+  },
+  {
+    "name": "SN_FORGE_#003",
+    "teleporter": "SN_FORGE_#003",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 3
+  },
+  {
+    "name": "SN_FORGE_#004",
+    "teleporter": "SN_FORGE_#004",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 4
+  },
+  {
+    "name": "SN_FORGE_#005",
+    "teleporter": "SN_FORGE_#005",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 5
+  },
+  {
+    "name": "SN_FORGE_#006",
+    "teleporter": "SN_FORGE_#006",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 6
+  },
+  {
+    "name": "SN_FORGE_#007",
+    "teleporter": "SN_FORGE_#007",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 7
+  },
+  {
+    "name": "SN_FORGE_#008",
+    "teleporter": "SN_FORGE_#008",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 8
+  },
+  {
+    "name": "SN_FORGE_#009",
+    "teleporter": "SN_FORGE_#009",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 9
+  },
+  {
+    "name": "SN_FORGE_#010",
+    "teleporter": "SN_FORGE_#010",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 10
+  },
+  {
+    "name": "SN_FORGE_#011",
+    "teleporter": "SN_FORGE_#011",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 11
+  },
+  {
+    "name": "SN_FORGE_#012",
+    "teleporter": "SN_FORGE_#012",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 12
+  },
+  {
+    "name": "SN_FORGE_#013",
+    "teleporter": "SN_FORGE_#013",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 13
+  },
+  {
+    "name": "SN_FORGE_#014",
+    "teleporter": "SN_FORGE_#014",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 14
+  },
+  {
+    "name": "SN_FORGE_#015",
+    "teleporter": "SN_FORGE_#015",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 15
+  },
+  {
+    "name": "SN_FORGE_#016",
+    "teleporter": "SN_FORGE_#016",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 16
+  },
+  {
+    "name": "SN_FORGE_#017",
+    "teleporter": "SN_FORGE_#017",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 17
+  },
+  {
+    "name": "SN_FORGE_#018",
+    "teleporter": "SN_FORGE_#018",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 18
+  },
+  {
+    "name": "SN_FORGE_#019",
+    "teleporter": "SN_FORGE_#019",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 19
+  },
+  {
+    "name": "SN_FORGE_#020",
+    "teleporter": "SN_FORGE_#020",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 20
+  },
+  {
+    "name": "SN_FORGE_#021",
+    "teleporter": "SN_FORGE_#021",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 21
+  },
+  {
+    "name": "SN_FORGE_#022",
+    "teleporter": "SN_FORGE_#022",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 22
+  },
+  {
+    "name": "SN_FORGE_#023",
+    "teleporter": "SN_FORGE_#023",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 23
+  },
+  {
+    "name": "SN_FORGE_#024",
+    "teleporter": "SN_FORGE_#024",
+    "delay": 14400,
+    "deposit_height": 3,
+    "initial_delay": 24
   }
 ]
