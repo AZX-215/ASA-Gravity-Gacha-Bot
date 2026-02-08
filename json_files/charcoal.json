@@ -1,0 +1,17 @@
+[
+  {
+    "name": "charcoal_station_1",
+    "teleporter": "charcoal_station_1",
+    "station_yaw": 0.0,
+
+    "deposit_teleporter": "dedi_deposit_charcoal",
+    "deposit_yaw": 0.0,
+
+    "wood_withdraw_teleporter_1": "wood_dedi_station_1",
+    "wood_withdraw_teleporter_2": "wood_dedi_station_2",
+
+    "height": 3,
+    "delay": 900,
+    "initial_delay": 0
+  }
+]
