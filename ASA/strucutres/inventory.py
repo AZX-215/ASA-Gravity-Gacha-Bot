@@ -38,7 +38,25 @@ def open():
         if attempts >= ASA.config.inventory_open_attempts:
             logs.logger.error(f"unable to open up the objects inventory")
             break
-    time.sleep(0.4*settings.lag_offset)    
+    time.sleep(0.4*settings.lag_offset)
+
+def auto_stack():
+    """Click the AUTO STACK button once if present (structure/tame inventories).
+    Safe no-op if the button isn't visible.
+    """
+    if not is_open():
+        return False
+    # Only click if the button is visible in its ROI.
+    try:
+        if not template.check_template("auto_stack", 0.70):
+            return False
+    except Exception:
+        return False
+
+    windows.click(variables.get_pixel_loc("auto_stack_x"), variables.get_pixel_loc("auto_stack_y"))
+    time.sleep(0.25*settings.lag_offset)
+    return True
+    
 def close():
     attempts = 0
     while is_open():
@@ -102,15 +120,14 @@ def select_object_crafting_tab():
 def popcorn_top_row():
     if is_open():
         for count in range(6):
-            time.sleep(0.3 * settings.lag_offset)
-            base_x = inv_slots["x"] + (count * inv_slots["distance"]) + 30  # authored at 2560x1440
-            base_y = inv_slots["y"] + 30
-
-            x = screen.map_x(base_x)
-            y = screen.map_y(base_y)
-
-            windows.move_mouse(x, y)
-            time.sleep(0.3 * settings.lag_offset)
+            time.sleep(0.3*settings.lag_offset)
+            x = inv_slots["x"] + (count *inv_slots["distance"]) + 30 # x pos = startx + distancebetweenslots * count 
+            y = inv_slots["y"] + 30
+            if screen.screen_resolution == 1080:
+                windows.move_mouse(x * 0.75,y * 0.75)
+            else:
+                windows.move_mouse(x,y)
+            time.sleep(0.3*settings.lag_offset)
             utils.press_key("DropItem")
 
  

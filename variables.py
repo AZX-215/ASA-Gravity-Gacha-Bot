@@ -22,6 +22,8 @@ data = {
     "first_bed_slot_y": 300,
     "close_inv_x": 2400,
     "close_inv_y": 90,
+    "auto_stack_x": 2228,
+    "auto_stack_y": 238,
     # Structure-side tabs (right panel) for inventories like Megalab/ChemBench
     # (1440p baseline; auto-scaled to 1080p via get_pixel_loc)
     "structure_inventory_tab_x": 1695,
@@ -39,20 +41,10 @@ data = {
     "back_button_tp_y": 1285
 }
 
-def get_pixel_loc(location: str):
-    """Return a client-area pixel coordinate for the given key.
+def get_pixel_loc(location):
+    if screen.screen_resolution == 1080:
+        return round(data.get(location) * 0.75)
+    else:
+        return data.get(location)
+ 
 
-    All coordinates in `data` are authored at 2560x1440 and are mapped to the
-    current resolution (including ultrawide centering) via screen.map_*.
-    """
-    value = data.get(location)
-    if value is None:
-        return None
-
-    if location.endswith("_x"):
-        return screen.map_x(value)
-    if location.endswith("_y"):
-        return screen.map_y(value)
-
-    # Fallback: treat as a horizontal length.
-    return screen.map_w(value)

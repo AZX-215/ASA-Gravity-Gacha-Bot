@@ -9,65 +9,8 @@ import json
 
 
 
-def _read_icon(item: str):
-    """Read template image for current resolution, optionally preferring HDR folders.
-
-    Folder precedence:
-      1) icons{height}_hdr/ (if settings.use_hdr_templates and folder exists)
-      2) icons{height}/
-      3) icons1440_hdr/ (if enabled and exists)
-      4) icons1440/
-
-    If fallback to 1440 is used and screen scale != 1, resize to match runtime.
-    """
-    import os
-
-    height = int(getattr(screen, "screen_resolution", 1440) or 1440)
-    prefer_hdr = bool(getattr(settings, "use_hdr_templates", False))
-
-    def _try(folder: str):
-        return cv2.imread(f"{folder}/{item}.png")
-
-    folders = []
-    if prefer_hdr and os.path.isdir(f"icons{height}_hdr"):
-        folders.append(f"icons{height}_hdr")
-    if os.path.isdir(f"icons{height}"):
-        folders.append(f"icons{height}")
-
-    for folder in folders:
-        img = _try(folder)
-        if img is not None:
-            return img
-
-    # fallback to 1440
-    fb = []
-    if prefer_hdr and os.path.isdir("icons1440_hdr"):
-        fb.append("icons1440_hdr")
-    fb.append("icons1440")
-
-    img = None
-    for folder in fb:
-        img = _try(folder)
-        if img is not None:
-            break
-
-    if img is None:
-        logs.logger.error(f"Missing icon for template '{item}'.")
-        return None
-
-    fx = float(getattr(screen, "scale_x", 1.0))
-    fy = float(getattr(screen, "scale_y", 1.0))
-    if abs(fx - 1.0) > 0.001 or abs(fy - 1.0) > 0.001:
-        img = cv2.resize(img, (0, 0), fx=fx, fy=fy, interpolation=cv2.INTER_LINEAR)
-    return img
-
-
-def _grab_roi(region: dict):
-    # Regions are authored at 2560x1440; screen.get_screen_roi maps to current client.
-    return screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
-
-
 roi_regions = {
+    "auto_stack": {"start_x":2137, "start_y":175, "width":182, "height":125},
     "bed_radical": {"start_x":1120, "start_y":345 ,"width":250 ,"height":250},
     "beds_title": {"start_x":100, "start_y":100 ,"width":740 ,"height":180},
     "console": {"start_x":0, "start_y":1400 ,"width":50 ,"height":40},
@@ -118,7 +61,10 @@ def template_await_false(func,sleep_amount:float,*args) -> bool:
 
 def check_template(item:str, threshold:float) -> bool:
     region = roi_regions[item]
-    roi = _grab_roi(region)
+    if screen.screen_resolution == 1440:
+        roi = screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
+    else:
+        roi = screen.get_screen_roi(int(region["start_x"] * 0.75), int(region["start_y"] * 0.75), int(region["width"] * 0.75), int(region["height"] * 0.75))
         
     lower_boundary = np.array([0,30,200])
     upper_boundary = np.array([255,255,255])
@@ -128,7 +74,7 @@ def check_template(item:str, threshold:float) -> bool:
     masked_template = cv2.bitwise_and(roi, roi, mask= mask)
     gray_roi = cv2.cvtColor(masked_template, cv2.COLOR_BGR2GRAY)
 
-    image = _read_icon(item)
+    image = cv2.imread(f"icons{screen.screen_resolution}/{item}.png")
     hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
     masked_template = cv2.bitwise_and(image, image, mask=mask)
@@ -145,7 +91,10 @@ def check_template(item:str, threshold:float) -> bool:
 
 def check_template_no_bounds(item:str, threshold:float) -> bool:
     region = roi_regions[item]
-    roi = _grab_roi(region)
+    if screen.screen_resolution == 1440:
+        roi = screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
+    else:
+        roi = screen.get_screen_roi(int(region["start_x"] * 0.75), int(region["start_y"] * 0.75), int(region["width"] * 0.75), int(region["height"] * 0.75))
         
     lower_boundary = np.array([0,0,0])
     upper_boundary = np.array([255,255,255])
@@ -155,7 +104,7 @@ def check_template_no_bounds(item:str, threshold:float) -> bool:
     masked_template = cv2.bitwise_and(roi, roi, mask= mask)
     gray_roi = cv2.cvtColor(masked_template, cv2.COLOR_BGR2GRAY)
 
-    image = _read_icon(item)
+    image = cv2.imread(f"icons{screen.screen_resolution}/{item}.png")
     hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
     masked_template = cv2.bitwise_and(image, image, mask=mask)
@@ -172,7 +121,10 @@ def check_template_no_bounds(item:str, threshold:float) -> bool:
 
 def return_location(item:str,threshold:float): #assumes that the check for the item on the screen has already been done
     region = roi_regions[item]
-    roi = _grab_roi(region)
+    if screen.screen_resolution == 1440:
+        roi = screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
+    else:
+        roi = screen.get_screen_roi(int(region["start_x"] * 0.75), int(region["start_y"] * 0.75), int(region["width"] * 0.75), int(region["height"] * 0.75))
         
     lower_boundary = np.array([0,0,0])
     upper_boundary = np.array([255,255,255])
@@ -182,7 +134,7 @@ def return_location(item:str,threshold:float): #assumes that the check for the i
     masked_template = cv2.bitwise_and(roi, roi, mask= mask)
     gray_roi = cv2.cvtColor(masked_template, cv2.COLOR_BGR2GRAY)
 
-    image = _read_icon(item)
+    image = cv2.imread(f"icons{screen.screen_resolution}/{item}.png")
     hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
     masked_template = cv2.bitwise_and(image, image, mask=mask)
@@ -199,7 +151,10 @@ def return_location(item:str,threshold:float): #assumes that the check for the i
 
 def teleport_icon(threshold:float) -> bool:
     region = roi_regions["teleporter_icon"]
-    roi = screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
+    if screen.screen_resolution == 1440:
+        roi = screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
+    else:
+        roi = screen.get_screen_roi(int(region["start_x"] * 0.75), int(region["start_y"] * 0.75), int(region["width"] * 0.75), int(region["height"] * 0.75))
         
     lower_boundary = np.array([0,0,150])
     upper_boundary = np.array([255,255,255])
@@ -226,7 +181,10 @@ def teleport_icon(threshold:float) -> bool:
 
 def inventory_first_slot(item:str,threshold:float) -> bool:
     region = roi_regions["first_slot"]
-    roi = screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
+    if screen.screen_resolution == 1440:
+        roi = screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
+    else:
+        roi = screen.get_screen_roi(int(region["start_x"] * 0.75), int(region["start_y"] * 0.75), int(region["width"] * 0.75), int(region["height"] * 0.75))
     
     lower_boundary = np.array([0,0,0])
     upper_boundary = np.array([255,255,255])
@@ -236,7 +194,7 @@ def inventory_first_slot(item:str,threshold:float) -> bool:
     masked_template = cv2.bitwise_and(roi, roi, mask= mask)
     gray_roi = cv2.cvtColor(masked_template, cv2.COLOR_BGR2GRAY)
 
-    image = _read_icon(item)
+    image = cv2.imread(f"icons{screen.screen_resolution}/{item}.png")
     hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
     masked_template = cv2.bitwise_and(image, image, mask=mask)
@@ -254,7 +212,10 @@ def inventory_first_slot(item:str,threshold:float) -> bool:
 
 def check_buffs(buff,threshold):
     region = roi_regions["player_stats"]
-    roi = screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
+    if screen.screen_resolution == 1440:
+        roi = screen.get_screen_roi(region["start_x"], region["start_y"], region["width"], region["height"])
+    else:
+        roi = screen.get_screen_roi(int(region["start_x"] * 0.75), int(region["start_y"] * 0.75), int(region["width"] * 0.75), int(region["height"] * 0.75))
     
     lower_boundary = np.array([0, 0, 180])
     upper_boundary = np.array([255,255,255])
@@ -264,7 +225,7 @@ def check_buffs(buff,threshold):
     masked_template = cv2.bitwise_and(roi, roi, mask= mask)
     gray_roi = cv2.cvtColor(masked_template, cv2.COLOR_BGR2GRAY)
 
-    image = _read_icon(buff)
+    image = cv2.imread(f"icons{screen.screen_resolution}/{buff}.png")
     hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv,lower_boundary,upper_boundary)
     masked_template = cv2.bitwise_and(image, image, mask=mask)

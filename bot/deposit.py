@@ -289,6 +289,7 @@ def collect_grindables(metadata):
     time.sleep(0.5*settings.lag_offset)  # guard to avoid toggling Megalab off
     ASA.strucutres.inventory.open()
     if template.template_await_true(template.check_template, 1, "inventory", 0.7):
+        ASA.strucutres.inventory.auto_stack()  # consolidate stacks before dumping poly
         ASA.player.player_inventory.search_in_inventory("poly")
         ASA.player.player_inventory.transfer_all_inventory()
         time.sleep(0.2*settings.lag_offset)
