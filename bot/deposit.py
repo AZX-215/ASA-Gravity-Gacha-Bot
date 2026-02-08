@@ -1,7 +1,7 @@
 import ASA.stations
 import ASA.stations.custom_stations
-import ASA.strucutres
-import ASA.strucutres.teleporter
+import ASA.structures
+import ASA.structures.teleporter
 import template
 import logs.gachalogs as logs
 import utils
@@ -10,7 +10,7 @@ import variables
 import time 
 import settings
 import ASA.config 
-import ASA.strucutres.inventory
+import ASA.structures.inventory
 import ASA.player.player_inventory
 import bot.config
 import json
@@ -198,23 +198,23 @@ def vault_deposit(items, metadata):
         turn_constant = -1
     utils.turn_right(90*turn_constant)
     time.sleep(0.2*settings.lag_offset)
-    ASA.strucutres.inventory.open()
+    ASA.structures.inventory.open()
     if not template.template_await_true(template.check_template,1,"vault",0.7):
         logs.logger.error(f"{side} vault was not opened retrying now ")
-        ASA.strucutres.inventory.close()
+        ASA.structures.inventory.close()
         time.sleep(0.1)
         utils.set_yaw(metadata.yaw)
         time.sleep(0.2)
         utils.turn_right(90*turn_constant)
         time.sleep(0.2*settings.lag_offset)
-        ASA.strucutres.inventory.open()
+        ASA.structures.inventory.open()
     if template.template_await_true(template.check_template,1,"inventory",0.7):
         time.sleep(0.1*settings.lag_offset)
         for x in range(len(items)):
             ASA.player.player_inventory.search_in_inventory(items[x])
             ASA.player.player_inventory.transfer_all_inventory()
             time.sleep(0.3*settings.lag_offset)
-        ASA.strucutres.inventory.close()
+        ASA.structures.inventory.close()
         time.sleep(0.2*settings.lag_offset)
     utils.turn_left(90*turn_constant)
     time.sleep(0.2*settings.lag_offset)
@@ -229,17 +229,17 @@ def drop_useless():
 def depo_grinder(metadata):
     utils.turn_right(180)
     time.sleep(0.5*settings.lag_offset)
-    ASA.strucutres.inventory.open()
+    ASA.structures.inventory.open()
     attempt = 0
     while not template.template_await_true(template.check_template,1,"grinder",0.7):
         attempt += 1
         logs.logger.error("couldnt open up the grinder while trying to deposit")
-        ASA.strucutres.inventory.close()
+        ASA.structures.inventory.close()
         utils.zero()
         utils.set_yaw(metadata.yaw)
         utils.turn_right(180)
         time.sleep(0.5*settings.lag_offset)
-        ASA.strucutres.inventory.open()
+        ASA.structures.inventory.open()
         if attempt >= bot.config.grinder_attempts:
             logs.logger.error(f"while trying to deposit we couldnt access grinder")
             break
@@ -249,7 +249,7 @@ def depo_grinder(metadata):
         time.sleep(0.3*settings.lag_offset)
         windows.click(variables.get_pixel_loc("dedi_withdraw_x"),variables.get_pixel_loc("dedi_withdraw_y")) #this is pressing the grind all button 
         time.sleep(0.3*settings.lag_offset)
-        ASA.strucutres.inventory.close()
+        ASA.structures.inventory.close()
     template.template_await_false(template.check_template,1,"inventory",0.7)
     time.sleep(0.2*settings.lag_offset)
     utils.turn_right(180)
@@ -257,25 +257,25 @@ def depo_grinder(metadata):
 def collect_grindables(metadata):
     utils.turn_right(90)
     time.sleep(0.3*settings.lag_offset) # sleep stops the grinder from opening the dedis on accident 
-    ASA.strucutres.inventory.open()
+    ASA.structures.inventory.open()
     attempt = 0
     while not template.template_await_true(template.check_template,1,"grinder",0.7):
         attempt += 1
         logs.logger.error("couldnt open up the grinder while trying to deposit")
-        ASA.strucutres.inventory.close()
+        ASA.structures.inventory.close()
         utils.zero()
         utils.set_yaw(metadata.yaw)
         utils.turn_right(90)
         time.sleep(0.5*settings.lag_offset)
-        ASA.strucutres.inventory.open()
+        ASA.structures.inventory.open()
         if attempt >= bot.config.grinder_attempts:
             logs.logger.error(f"while trying to deposit we couldnt access grinder")
             break
 
     if template.check_template("grinder",0.7):
-        ASA.strucutres.inventory.transfer_all_from()
+        ASA.structures.inventory.transfer_all_from()
         time.sleep(0.2*settings.lag_offset)
-        ASA.strucutres.inventory.close()
+        ASA.structures.inventory.close()
     template.template_await_false(template.check_template,1,"inventory",0.7)
     time.sleep(0.2*settings.lag_offset)
     utils.turn_left(90)
@@ -287,14 +287,13 @@ def collect_grindables(metadata):
     angle = getattr(settings, "megalab_left_degrees", 90)
     utils.turn_left(angle)
     time.sleep(0.5*settings.lag_offset)  # guard to avoid toggling Megalab off
-    ASA.strucutres.inventory.open()
+    ASA.structures.inventory.open()
     if template.template_await_true(template.check_template, 1, "inventory", 0.7):
-        ASA.strucutres.inventory.auto_stack()
         ASA.player.player_inventory.search_in_inventory("poly")
         ASA.player.player_inventory.transfer_all_inventory()
         time.sleep(0.2*settings.lag_offset)
         ASA.player.player_inventory.search_in_inventory("")  # clear filter
-        ASA.strucutres.inventory.close()
+        ASA.structures.inventory.close()
         template.template_await_false(template.check_template, 1, "inventory", 0.7)
     utils.turn_right(angle)
     time.sleep(0.5*settings.lag_offset)
@@ -337,7 +336,7 @@ def deposit_all(metadata):
         logs.logger.debug("depositing in grinder")
         depo_grinder(metadata)
         grindables_metadata = ASA.stations.custom_stations.get_station_metadata(settings.grindables)
-        ASA.strucutres.teleporter.teleport_not_default(grindables_metadata)
+        ASA.structures.teleporter.teleport_not_default(grindables_metadata)
         time.sleep(0.5)
         logs.logger.debug("collecting grindables")
         collect_grindables(grindables_metadata)
@@ -345,3 +344,74 @@ def deposit_all(metadata):
         drop_useless()
 
 
+
+
+def dedi_deposit_charcoal(height):
+    """Custom charcoal deposit routine.
+
+    This is intentionally a dedicated station/teleporter and may require a custom yaw.
+    Only height==3 is supported currently.
+    """
+    if height == 3:
+        utils.turn_up(15)
+        utils.turn_left(25)
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Use")
+        time.sleep(0.3*settings.lag_offset)
+        utils.turn_right(50)
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Use")
+        time.sleep(0.3*settings.lag_offset)
+        utils.turn_down(30)
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Use")
+        time.sleep(0.3*settings.lag_offset)
+        utils.turn_left(50)
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Use")
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Crouch")
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Use")
+        time.sleep(0.3*settings.lag_offset)
+        utils.turn_right(50)
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Use")
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Run")
+        utils.turn_up(15)
+        utils.turn_left(25)
+        time.sleep(0.3*settings.lag_offset)
+        utils.turn_left(180)
+        time.sleep(0.3*settings.lag_offset)
+        utils.turn_up(15)
+        utils.turn_left(15)
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Use")
+        time.sleep(0.3*settings.lag_offset)
+        utils.turn_right(30)
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Use")
+        time.sleep(0.3*settings.lag_offset)
+        utils.turn_down(25)
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Use")
+        time.sleep(0.3*settings.lag_offset)
+        utils.turn_left(30)
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Use")
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Crouch")
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Use")
+        time.sleep(0.3*settings.lag_offset)
+        utils.turn_right(30)
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Use")
+        time.sleep(0.3*settings.lag_offset)
+        utils.press_key("Run")
+        utils.turn_up(10)
+        utils.turn_left(15)
+        time.sleep(0.5*settings.lag_offset)
+    else:
+        logs.logger.warning(f"dedi_deposit_charcoal: unsupported height={height}; no action taken")

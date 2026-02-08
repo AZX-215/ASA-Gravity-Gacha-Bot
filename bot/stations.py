@@ -4,11 +4,12 @@ import template
 import logs.gachalogs as logs
 import bot.render
 import utils
-from ASA.strucutres import bed , teleporter , inventory
+from ASA.structures import bed , teleporter , inventory
 from ASA.player import buffs , console , player_state , tribelog , player_inventory
 from ASA.stations import custom_stations
-from bot import config , deposit , gacha , iguanadon , pego 
+from bot import config , deposit , gacha , iguanadon , pego , withdrawal 
 from crafting.ARB import megalab as megalab_crafting
+from crafting.ARB import steam_forge
 from abc import ABC ,abstractmethod
 global berry_station
 global last_berry
@@ -242,6 +243,146 @@ class sparkpowder_station(base_task):
             return self.delay
         return getattr(settings, "sparkpowder_requeue_delay", 1800)
 
+
+
+class charcoal_station(base_task):
+
+    def __init__(
+        self,
+        name,
+        teleporter_name,
+        delay=0,
+        station_yaw=0.0,
+        deposit_teleporter="dedi_deposit_charcoal",
+        deposit_yaw=0.0,
+        height=3,
+        wood_withdraw_teleporter_1="wood_dedi_station_1",
+        wood_withdraw_teleporter_2="wood_dedi_station_2",
+        initial_delay=0,
+    ):
+        super().__init__()
+        self.name = name
+        self.teleporter_name = teleporter_name
+
+        self.delay = float(delay or 0)
+        self.initial_delay = float(initial_delay or 0)
+        self.station_yaw = float(station_yaw or 0.0)
+
+        self.deposit_teleporter = deposit_teleporter
+        self.deposit_yaw = float(deposit_yaw or 0.0)
+        self.height = int(height or 3)
+
+        self.wood_withdraw_teleporter_1 = wood_withdraw_teleporter_1
+        self.wood_withdraw_teleporter_2 = wood_withdraw_teleporter_2
+
+        self.one_shot = False
+
+    def execute(self):
+        attempts_max = int(getattr(config, "charcoal_attempts", 3) or 3)
+
+        for attempt in range(1, attempts_max + 1):
+            meta = None
+            try:
+                player_state.check_state()
+
+                if not getattr(settings, "crafting", False) or not getattr(settings, "charcoal_enabled", False):
+                    logs.logger.info("[Charcoal] Disabled in settings (crafting and/or charcoal_enabled); skipping.")
+                    return
+
+                meta = custom_stations.get_station_metadata(self.teleporter_name)
+                logs.logger.info(f"[Charcoal] Teleport -> Station: {self.teleporter_name}")
+                teleporter.teleport_not_default(meta)
+                time.sleep(0.7 * getattr(settings, "lag_offset", 1.0))
+
+                # Face the forge yaw for this station
+                utils.pitch_zero()
+                utils.set_yaw(self.station_yaw if self.station_yaw is not None else meta.yaw)
+                time.sleep(0.3 * getattr(settings, "lag_offset", 1.0))
+
+                # Take charcoal only (filter prevents ingots from being pulled)
+                steam_forge.take_all_charcoal_only()
+                time.sleep(0.4 * getattr(settings, "lag_offset", 1.0))
+
+                # Drop off charcoal
+                logs.logger.info(f"[Charcoal] Teleport -> Dropoff: {self.deposit_teleporter}")
+                drop_meta = custom_stations.get_station_metadata(self.deposit_teleporter)
+                teleporter.teleport_not_default(drop_meta)
+                time.sleep(0.7 * getattr(settings, "lag_offset", 1.0))
+
+                utils.pitch_zero()
+                utils.set_yaw(self.deposit_yaw if self.deposit_yaw is not None else drop_meta.yaw)
+                time.sleep(0.3 * getattr(settings, "lag_offset", 1.0))
+
+                deposit.dedi_deposit_charcoal(self.height)
+                time.sleep(0.4 * getattr(settings, "lag_offset", 1.0))
+
+                # Withdraw wood from two wood dedis (placeholders for now)
+                logs.logger.info(f"[Charcoal] Teleport -> Wood Withdraw 1: {self.wood_withdraw_teleporter_1}")
+                w1 = custom_stations.get_station_metadata(self.wood_withdraw_teleporter_1)
+                teleporter.teleport_not_default(w1)
+                time.sleep(0.7 * getattr(settings, "lag_offset", 1.0))
+                withdrawal.wood_dedi_withdraw_placeholder(self.wood_withdraw_teleporter_1)
+
+                logs.logger.info(f"[Charcoal] Teleport -> Wood Withdraw 2: {self.wood_withdraw_teleporter_2}")
+                w2 = custom_stations.get_station_metadata(self.wood_withdraw_teleporter_2)
+                teleporter.teleport_not_default(w2)
+                time.sleep(0.7 * getattr(settings, "lag_offset", 1.0))
+                withdrawal.wood_dedi_withdraw_placeholder(self.wood_withdraw_teleporter_2)
+
+                # Return to station
+                logs.logger.info(f"[Charcoal] Teleport -> Station (return): {self.teleporter_name}")
+                teleporter.teleport_not_default(meta)
+                time.sleep(0.8 * getattr(settings, "lag_offset", 1.0))
+
+                utils.pitch_zero()
+                utils.set_yaw(self.station_yaw if self.station_yaw is not None else meta.yaw)
+                time.sleep(0.3 * getattr(settings, "lag_offset", 1.0))
+
+                # Withdraw element (3) from the element dedi adjacent to the station
+                withdrawal.element_withdraw_at_charcoal_station()
+
+                # Transfer wood+element into forge
+                steam_forge.transfer_all_to_forge()
+
+                # Turn on forge ONLY if we see the Turn On prompt
+                turned_on = steam_forge.try_turn_on()
+                if turned_on:
+                    logs.logger.info("[Charcoal] Forge turned on.")
+                else:
+                    logs.logger.info("[Charcoal] Forge not turned on (already on or not ready).")
+
+                # Restore station yaw
+                utils.pitch_zero()
+                utils.set_yaw(self.station_yaw if self.station_yaw is not None else meta.yaw)
+                return
+
+            except Exception as e:
+                logs.logger.warning(f"[Charcoal] Attempt {attempt}/{attempts_max} failed: {e}")
+                try:
+                    from ASA.structures import inventory
+                    inventory.close()
+                except Exception:
+                    pass
+                try:
+                    if meta is not None:
+                        utils.pitch_zero()
+                        utils.set_yaw(self.station_yaw if self.station_yaw is not None else meta.yaw)
+                except Exception:
+                    pass
+
+                time.sleep(0.75 * getattr(settings, "lag_offset", 1.0))
+
+        logs.logger.error(f"[Charcoal] Failed after {attempts_max} attempts; giving up until next schedule.")
+
+    def get_priority_level(self):
+        # Same overall priority as sparkpowder/gunpowder; ordering is handled by initial_delay offsets.
+        return 3
+
+    def get_requeue_delay(self):
+        if self.delay and self.delay > 0:
+            # Add a small offset so charcoal schedules after sparkpowder but before gunpowder when aligned.
+            return self.delay + 0.05
+        return getattr(settings, "charcoal_requeue_delay", 1800)
 
 class gunpowder_station(base_task):
 

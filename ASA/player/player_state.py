@@ -7,8 +7,8 @@ import time
 import settings
 import ASA.config 
 import ASA.player.tribelog
-import ASA.strucutres.bed
-import ASA.strucutres.teleporter
+import ASA.structures.bed
+import ASA.structures.teleporter
 import ASA.player.player_inventory
 import ASA.player.buffs
 import bot.render
@@ -29,10 +29,10 @@ def check_disconnected():
 def reset_state():
     logs.logger.debug(f"resetting char state now")
     ASA.player.player_inventory.close()
-    ASA.strucutres.teleporter.close()
+    ASA.structures.teleporter.close()
     ASA.player.tribelog.close()
-    if ASA.strucutres.bed.is_open():
-        ASA.strucutres.bed.spawn_in(settings.bed_spawn) #guessing the char died will respawn it if the char hasnt died and it just in a tekpod screen it will just exit when it cant find its target bed
+    if ASA.structures.bed.is_open():
+        ASA.structures.bed.spawn_in(settings.bed_spawn) #guessing the char died will respawn it if the char hasnt died and it just in a tekpod screen it will just exit when it cant find its target bed
     utils.press_key("Run") # makes the char stand up doing this at the end ensures we arent in any inventory
 
 def check_state(): # mainliy checked at the start of every task to check for food / water on the char
@@ -45,7 +45,7 @@ def check_state(): # mainliy checked at the start of every task to check for foo
         bot.render.leave_tekpod()
     elif type == 2 or type == 3:
         logs.logger.warning(f"tping back to render bed to replenish food and water | 2= water 3= food | reason:{type}")
-        ASA.strucutres.teleporter.teleport_not_default(settings.bed_spawn)
+        ASA.structures.teleporter.teleport_not_default(settings.bed_spawn)
         bot.render.enter_tekpod()
         time.sleep(30) # assuming 30 seconds should replenish the player back to 100/100
         bot.render.leave_tekpod()

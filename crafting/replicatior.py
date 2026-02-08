@@ -1,7 +1,7 @@
 import ASA.stations
 import ASA.stations.custom_stations
-import ASA.strucutres
-import ASA.strucutres.teleporter
+import ASA.structures
+import ASA.structures.teleporter
 import template
 import logs.gachalogs as logs
 import utils
@@ -10,7 +10,7 @@ import variables
 import time 
 import settings
 import ASA.config 
-import ASA.strucutres.inventory
+import ASA.structures.inventory
 import ASA.player.player_inventory
 import bot.config
 import json

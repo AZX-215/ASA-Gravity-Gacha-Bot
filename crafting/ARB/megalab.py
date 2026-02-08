@@ -1,6 +1,6 @@
 import time
 
-import ASA.strucutres.inventory
+import ASA.structures.inventory
 import logs.gachalogs as logs
 import settings
 import template
@@ -12,15 +12,15 @@ import screen
 
 def is_open_megalab() -> bool:
     """Returns True if an inventory is open AND the title matches Makeshift Megalab."""
-    if not ASA.strucutres.inventory.is_open():
+    if not ASA.structures.inventory.is_open():
         return False
     return template.check_template("megalab", 0.7)
 
 
 def _click_first_slot():
     """Clicks the first (top-left) slot in the structure-side grid."""
-    base_x = ASA.strucutres.inventory.inv_slots["x"] + 30
-    base_y = ASA.strucutres.inventory.inv_slots["y"] + 30
+    base_x = ASA.structures.inventory.inv_slots["x"] + 30
+    base_y = ASA.structures.inventory.inv_slots["y"] + 30
 
     x = screen.map_x(base_x)
     y = screen.map_y(base_y)
@@ -32,12 +32,12 @@ def _click_first_slot():
 
 def select_inventory_tab():
     """Select the structure-side INVENTORY tab (right panel)."""
-    ASA.strucutres.inventory.select_object_inventory_tab()
+    ASA.structures.inventory.select_object_inventory_tab()
 
 
 def select_crafting_tab():
     """Select the structure-side CRAFTING tab (right panel)."""
-    ASA.strucutres.inventory.select_object_crafting_tab()
+    ASA.structures.inventory.select_object_crafting_tab()
 
 
 def transfer_filtered_to_player(search_term: str = "spark") -> bool:
@@ -48,14 +48,14 @@ def transfer_filtered_to_player(search_term: str = "spark") -> bool:
 
     This is intentionally simple: if there are no matching items, transfer does nothing.
     """
-    if not ASA.strucutres.inventory.is_open():
+    if not ASA.structures.inventory.is_open():
         logs.logger.error("Megalab transfer requested but no structure inventory is open.")
         return False
 
     select_inventory_tab()
-    ASA.strucutres.inventory.search_in_object(search_term)
+    ASA.structures.inventory.search_in_object(search_term)
     time.sleep(0.15 * settings.lag_offset)
-    ASA.strucutres.inventory.transfer_all_from()
+    ASA.structures.inventory.transfer_all_from()
     time.sleep(0.15 * settings.lag_offset)
     return True
 
@@ -67,12 +67,12 @@ def craft_from_crafting_tab(search_term: str = "spark", craft_seconds: float = 2
     - Clicks the first slot (assumes filtered result is top-left)
     - Spams 'A' for craft_seconds to craft as much as possible.
     """
-    if not ASA.strucutres.inventory.is_open():
+    if not ASA.structures.inventory.is_open():
         logs.logger.error("Megalab craft requested but no structure inventory is open.")
         return False
 
     select_crafting_tab()
-    ASA.strucutres.inventory.search_in_object(search_term)
+    ASA.structures.inventory.search_in_object(search_term)
     time.sleep(0.15 * settings.lag_offset)
 
     _click_first_slot()
