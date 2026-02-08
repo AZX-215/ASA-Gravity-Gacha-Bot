@@ -413,6 +413,7 @@ def main():
         "collect": 0,
         "sparkpowder": 0,
         "gunpowder": 0,
+        "charcoal": 0,
         "decay_prevention": 0,
         "render": 0,
     }
