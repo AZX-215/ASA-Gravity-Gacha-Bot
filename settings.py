@@ -30,6 +30,7 @@ gacha_enabled: bool = True
 # Crafting task toggles (crafting must also be True)
 crafting: bool = True # Toggle off for standalone gachabot.
 sparkpowder_enabled: bool = True # Sparkpowder stations are configured in json_files/sparkpowder.json
+charcoal_enabled: bool = False # Charcoal stations are configured in json_files/charcoal.json
 gunpowder_enabled: bool = False # Gunpowder stations are configured in json_files/gunpowder.json
 
 # Auto-decay prevention (teleport + open tribe log to keep areas rendered)

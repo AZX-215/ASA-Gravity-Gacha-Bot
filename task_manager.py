@@ -178,6 +178,9 @@ class task_scheduler(metaclass=SingletonMeta):
         if isinstance(task, stations.sparkpowder_station):
             return bool(getattr(settings, "crafting", False) and getattr(settings, "sparkpowder_enabled", False))
 
+        if isinstance(task, stations.charcoal_station):
+            return bool(getattr(settings, "crafting", False) and getattr(settings, "charcoal_enabled", False))
+
         if isinstance(task, stations.gunpowder_station):
             return bool(getattr(settings, "crafting", False) and getattr(settings, "gunpowder_enabled", False))
 
@@ -482,6 +485,50 @@ def main():
             scheduler.add_task(stations.sparkpowder_station(sp_name, sp_tp, sp_delay, sp_height, sp_initial))
             loaded_counts["sparkpowder"] += 1
 
+
+    # ---------------- Crafting: Charcoal ----------------
+    # Order requirement: Sparkpowder -> Charcoal -> Gunpowder
+    if getattr(settings, "crafting", False) and getattr(settings, "charcoal_enabled", False):
+        charcoal_data = load_resolution_data("json_files/charcoal.json")
+        for entry in charcoal_data:
+            ch_name = entry.get("name") or entry.get("station_name") or entry.get("teleporter")
+            ch_tp = entry.get("teleporter") or entry.get("station_name") or entry.get("name")
+            ch_delay = entry.get("delay", 0)
+            ch_initial = entry.get("initial_delay", 0)
+            ch_yaw = entry.get("station_yaw", 0.0)
+
+            deposit_tp = entry.get("deposit_teleporter", "dedi_deposit_charcoal")
+            deposit_yaw = entry.get("deposit_yaw", 0.0)
+            height = entry.get("height", 3)
+
+            wood_tp_1 = entry.get("wood_withdraw_teleporter_1", "wood_dedi_station_1")
+            wood_tp_2 = entry.get("wood_withdraw_teleporter_2", "wood_dedi_station_2")
+
+            if not ch_name or not ch_tp:
+                logs.logger.warning(f"[Charcoal] Invalid entry in charcoal.json: {entry}")
+                continue
+
+            # Stagger initial execution slightly so it runs between spark and gun when priorities align.
+            try:
+                ch_initial = float(ch_initial or 0) + 0.05
+            except Exception:
+                ch_initial = 0.05
+
+            scheduler.add_task(
+                stations.charcoal_station(
+                    ch_name,
+                    ch_tp,
+                    ch_delay,
+                    ch_yaw,
+                    deposit_tp,
+                    deposit_yaw,
+                    height,
+                    wood_tp_1,
+                    wood_tp_2,
+                    ch_initial,
+                )
+            )
+            loaded_counts["charcoal"] += 1
     # ---------------- Crafting: Gunpowder ----------------
     if getattr(settings, "crafting", False) and getattr(settings, "gunpowder_enabled", False):
         gunpowder_data = load_resolution_data("json_files/gunpowder.json")

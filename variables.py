@@ -36,15 +36,23 @@ data = {
     "buff_button_y": 1180,
     "drop_all_obj_x":1978,
     "back_button_tp_x": 240,
-    "back_button_tp_y": 1285,
-    "auto_stack_x": 2230,
-    "auto_stack_y": 245,
+    "back_button_tp_y": 1285
 }
 
-def get_pixel_loc(location):
-    if screen.screen_resolution == 1080:
-        return round(data.get(location) * 0.75)
-    else:
-        return data.get(location)
- 
+def get_pixel_loc(location: str):
+    """Return a client-area pixel coordinate for the given key.
 
+    All coordinates in `data` are authored at 2560x1440 and are mapped to the
+    current resolution (including ultrawide centering) via screen.map_*.
+    """
+    value = data.get(location)
+    if value is None:
+        return None
+
+    if location.endswith("_x"):
+        return screen.map_x(value)
+    if location.endswith("_y"):
+        return screen.map_y(value)
+
+    # Fallback: treat as a horizontal length.
+    return screen.map_w(value)
