@@ -587,19 +587,29 @@ class render_station(base_task):
         self.name = settings.bed_spawn
         
     def execute(self):
-        global berry_station 
-        if bot.render.render_flag == False: # ! changed this and deleted a statement. review orginal if not broken.
-            logs.logger.debug(f"render flag:{bot.render.render_flag} we are trying to get into the pod now")
-            player_state.reset_state()
-            teleporter.teleport_not_default(settings.bed_spawn)
-            time.sleep(0.5)
-            bot.render.enter_tekpod()
-            player_inventory.open()
-            player_inventory.drop_all_inv()
-            player_inventory.close()
-            tribelog.open()
-            time.sleep(0.5)
-    def get_priority_level(self):
+            # Render station is a home/idle location.
+            # Only run the full render workflow when render_flag is set elsewhere (e.g., via command).
+            player_state.check_state()
+            self.record_execution()
+
+            if not settings.enable_render:
+                return
+
+            if not station.render_flag:
+                # Idle: stay in tekpod and do not teleport/spawn.
+                try:
+                    player_state.enter_tekpod()
+                except Exception:
+                    pass
+                time.sleep(0.5 * settings.lag_offset)
+                return
+
+            # render_flag True -> run the render workflow
+            player_state.exit_tekpod()
+            teleporters.teleport_not_default(self.bed_spawn)
+            time.sleep(1.0 * settings.lag_offset)
+            player_state.enter_tekpod()
+            station.render_flag = Falsedef get_priority_level(self):
         return 8
 
     def get_requeue_delay(self):
