@@ -156,11 +156,11 @@ def dedi_deposit_custom_1(height):
         time.sleep(0.3*settings.lag_offset)
         utils.press_key("Use")
         time.sleep(0.3*settings.lag_offset)
-        utils.turn_down(15)
+        utils.turn_down(30)
         time.sleep(0.3*settings.lag_offset)
         utils.press_key("Use")
         time.sleep(0.3*settings.lag_offset)
-        utils.turn_up(30)
+        utils.turn_up(45)
         time.sleep(0.3*settings.lag_offset)
 
     else:
@@ -342,6 +342,7 @@ def deposit_all(metadata):
         collect_grindables(grindables_metadata)
     else:
         drop_useless()
+
 
 
 
