@@ -17,6 +17,19 @@ inv_slots = {
 def is_open():
     return template.check_template("inventory",0.7)
     
+
+def auto_stack():
+    """Click the Auto Stack button in the structure inventory, if present."""
+    try:
+        # Button is in the top-right of the structure inventory panel.
+        if template.check_template("auto_stack", 0.75) or template.check_template("auto_stack_icon", 0.70):
+            windows.click(variables.get_pixel_loc("auto_stack_x"), variables.get_pixel_loc("auto_stack_y"))
+            time.sleep(0.25 * settings.lag_offset)
+            return True
+    except Exception as e:
+        logs.logger.error(f"auto_stack failed: {e}")
+    return False
+
 def open():
     attempts = 0 
     while not is_open():
