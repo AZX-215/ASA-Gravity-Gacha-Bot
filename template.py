@@ -100,9 +100,7 @@ roi_regions = {
     "forge_ready_for_activation": {"start_x":1100, "start_y":245 ,"width":355 ,"height":150},
     "forge_already_on": {"start_x":1100, "start_y":245 ,"width":355 ,"height":150},
     "forge_not_ready_no_fuel": {"start_x":1100, "start_y":245 ,"width":355 ,"height":150},
-    "access_inv":{"start_x":550, "start_y":450 ,"width":1670 ,"height":880},
-    "auto_stack": {"start_x":1800, "start_y":180 ,"width":700 ,"height":260},
-    "auto_stack_icon": {"start_x":1800, "start_y":180 ,"width":700 ,"height":260},
+    "access_inv":{"start_x":550, "start_y":450 ,"width":1670 ,"height":880}
 }
 def template_await_true(func,sleep_amount:float,*args) -> bool:
     count = 0 

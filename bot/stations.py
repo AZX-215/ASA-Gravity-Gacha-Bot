@@ -585,25 +585,38 @@ class render_station(base_task):
     def __init__(self):
         super().__init__()
         self.name = settings.bed_spawn
-
-        # Don't interrupt startup; maintenance runs via watchdog_render_task (cycle-complete/timeout).
-        self.initial_delay = 24 * 60 * 60
-
+        
     def execute(self):
-        # Home / maintenance: reset state, teleport to render bed, then park in the tekpod.
-        player_state.check_state()
-        teleporter.teleport_not_default(settings.bed_spawn)
-        time.sleep(0.5 * settings.lag_offset)
-        bot.render.enter_tekpod()
-        time.sleep(0.5 * settings.lag_offset)
+            # Render station is a home/idle location.
+            # Only run the full render workflow when render_flag is set elsewhere (e.g., via command).
+            player_state.check_state()
+            self.record_execution()
 
-    def get_priority_level(self):
+            if not settings.enable_render:
+                return
+
+            if not station.render_flag:
+                # Idle: stay in tekpod and do not teleport/spawn.
+                try:
+                    player_state.enter_tekpod()
+                except Exception:
+                    pass
+                time.sleep(0.5 * settings.lag_offset)
+                return
+
+            # render_flag True -> run the render workflow
+            player_state.exit_tekpod()
+            teleporters.teleport_not_default(self.bed_spawn)
+            time.sleep(1.0 * settings.lag_offset)
+            player_state.enter_tekpod()
+            station.render_flag = False
+
+def get_priority_level(self):
         return 8
 
     def get_requeue_delay(self):
-        return 24 * 60 * 60
-
-
+        return 90 # after triggered we will wait for 60 seconds reduces the amount of cpu usage 
+    
 class snail_pheonix(base_task):
     def __init__(self,name,teleporter_name,direction,depo):
         super().__init__()

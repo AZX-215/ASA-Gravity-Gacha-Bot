@@ -17,40 +17,6 @@ inv_slots = {
 def is_open():
     return template.check_template("inventory",0.7)
     
-
-def auto_stack():
-    """Click the Auto Stack button in the structure inventory (structure side), if present.
-
-    Uses template matching to locate the button and clicks its center-ish area.
-    """
-    try:
-        # Prefer the icon; fall back to the text/button template.
-        for name, thr in (("auto_stack_icon", 0.70), ("auto_stack", 0.75)):
-            if template.check_template(name, thr):
-                loc = template.return_location(name, thr)
-                if not loc:
-                    continue
-
-                region = template.roi_regions.get(name)
-                if not region:
-                    continue
-
-                # return_location() returns coordinates within the mapped ROI.
-                sx = screen.map_x(region["start_x"])
-                sy = screen.map_y(region["start_y"])
-
-                # Click with a small offset into the matched region (approx center).
-                click_x = sx + int(loc[0]) + 20
-                click_y = sy + int(loc[1]) + 20
-
-                windows.click(click_x, click_y)
-                time.sleep(0.25 * settings.lag_offset)
-                return True
-    except Exception as e:
-        logs.logger.error(f"auto_stack failed: {e}")
-    return False
-
-
 def open():
     attempts = 0 
     while not is_open():
@@ -147,4 +113,14 @@ def popcorn_top_row():
             time.sleep(0.3 * settings.lag_offset)
             utils.press_key("DropItem")
 
- 
+def auto_stack():
+    """Click the Auto Stack button in the structure inventory, if present."""
+    try:
+        # Button is in the top-right of the structure inventory panel.
+        if template.check_template("auto_stack", 0.75) or template.check_template("auto_stack_icon", 0.70):
+            windows.click(variables.get_pixel_loc("auto_stack_x"), variables.get_pixel_loc("auto_stack_y"))
+            time.sleep(0.25 * settings.lag_offset)
+            return True
+    except Exception as e:
+        logs.logger.error(f"auto_stack failed: {e}")
+    return False
