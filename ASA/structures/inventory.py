@@ -140,3 +140,53 @@ def auto_stack() -> bool:
         logs.logger.error(f"auto_stack failed: {e}")
         return False
 
+def auto_stack() -> bool:
+    """Click Auto Stack reliably.
+
+    Strategy:
+      1) Prefer template-location click inside the auto_stack ROI (most robust across UI scaling).
+      2) Fallback to fixed coordinates (variables.auto_stack_x/auto_stack_y) if available.
+    """
+    if not is_open():
+        return False
+
+    try:
+        # 1) Template-location click (preferred)
+        key = None
+        loc = None
+        if template.check_template("auto_stack_icon", 0.65):
+            key = "auto_stack_icon"
+            loc = template.return_location("auto_stack_icon", 0.65)
+        elif template.check_template("auto_stack", 0.70):
+            key = "auto_stack"
+            loc = template.return_location("auto_stack", 0.70)
+
+        if key and loc and loc != 0:
+            region = template.roi_regions[key]
+            origin_x = screen.map_x(region["start_x"])
+            origin_y = screen.map_y(region["start_y"])
+
+            img = template._read_icon(key)
+            w = int(img.shape[1]) if img is not None else 20
+            h = int(img.shape[0]) if img is not None else 20
+
+            click_x = int(origin_x + loc[0] + (w / 2))
+            click_y = int(origin_y + loc[1] + (h / 2))
+
+            windows.click(click_x, click_y)
+            time.sleep(0.25 * settings.lag_offset)
+            return True
+
+        # 2) Fallback to fixed coordinates if defined
+        x = variables.get_pixel_loc("auto_stack_x")
+        y = variables.get_pixel_loc("auto_stack_y")
+        if x is None or y is None:
+            return False
+
+        windows.click(x, y)
+        time.sleep(0.25 * settings.lag_offset)
+        return True
+    except Exception as e:
+        logs.logger.error(f"auto_stack failed: {e}")
+        return False
+
