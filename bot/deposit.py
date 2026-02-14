@@ -290,9 +290,11 @@ def collect_grindables(metadata):
     ASA.structures.inventory.open()
     if template.template_await_true(template.check_template, 1, "inventory", 0.7):
         ASA.player.player_inventory.search_in_inventory("poly")
+        ASA.structures.inventory.auto_stack()
+        time.sleep(0.15*settings.lag_offset)
         ASA.player.player_inventory.transfer_all_inventory()
         ASA.structures.inventory.auto_stack()
-        time.sleep(0.2*settings.lag_offset)
+        time.sleep(0.15*settings.lag_offset)
         time.sleep(0.2*settings.lag_offset)
         ASA.player.player_inventory.search_in_inventory("")  # clear filter
         ASA.structures.inventory.close()
