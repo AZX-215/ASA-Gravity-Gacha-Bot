@@ -36,7 +36,7 @@ data = {
     "buff_button_y": 1180,
     "drop_all_obj_x":1978,
     "back_button_tp_x": 240,
-    "back_button_tp_y": 1285
+    "back_button_tp_y": 1285,
     # Auto Stack button (structure inventory)
     "auto_stack_x": 2230,
     "auto_stack_y": 200,
