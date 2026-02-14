@@ -113,14 +113,50 @@ def popcorn_top_row():
             time.sleep(0.3 * settings.lag_offset)
             utils.press_key("DropItem")
 
-def auto_stack():
-    """Click the Auto Stack button in the structure inventory, if present."""
+def auto_stack() -> bool:
+    """Click the Auto Stack button in the structure inventory.
+
+    This implementation does NOT rely on hardcoded pixel variables (auto_stack_x/y).
+    It finds the button via template match in a dedicated ROI and clicks the match location.
+    """
+    if not is_open():
+        return False
+
     try:
-        # Button is in the top-right of the structure inventory panel.
-        if template.check_template("auto_stack", 0.75) or template.check_template("auto_stack_icon", 0.70):
-            windows.click(variables.get_pixel_loc("auto_stack_x"), variables.get_pixel_loc("auto_stack_y"))
-            time.sleep(0.25 * settings.lag_offset)
-            return True
+        # Prefer the icon template, fall back to the full button template.
+        key = None
+        if template.check_template("auto_stack_icon", 0.70):
+            key = "auto_stack_icon"
+            loc = template.return_location("auto_stack_icon", 0.70)
+        elif template.check_template("auto_stack", 0.75):
+            key = "auto_stack"
+            loc = template.return_location("auto_stack", 0.75)
+        else:
+            return False
+
+        if not loc or loc == 0:
+            return False
+
+        region = template.roi_regions[key]
+        base_x = region["start_x"]
+        base_y = region["start_y"]
+
+        # Map ROI origin (authored at 2560x1440) to current client coords.
+        origin_x = screen.map_x(base_x)
+        origin_y = screen.map_y(base_y)
+
+        # Template image size (already scaled if needed inside template._read_icon()).
+        img = template._read_icon(key)
+        w = int(img.shape[1]) if img is not None else 20
+        h = int(img.shape[0]) if img is not None else 20
+
+        click_x = int(origin_x + loc[0] + (w / 2))
+        click_y = int(origin_y + loc[1] + (h / 2))
+
+        windows.click(click_x, click_y)
+        time.sleep(0.25 * settings.lag_offset)
+        return True
     except Exception as e:
         logs.logger.error(f"auto_stack failed: {e}")
-    return False
+        return False
+
