@@ -156,7 +156,7 @@ def dedi_deposit_custom_1(height):
         time.sleep(0.3*settings.lag_offset)
         utils.press_key("Use")
         time.sleep(0.3*settings.lag_offset)
-        utils.turn_down(30)
+        utils.turn_down(15)
         time.sleep(0.3*settings.lag_offset)
         utils.press_key("Use")
         time.sleep(0.3*settings.lag_offset)
