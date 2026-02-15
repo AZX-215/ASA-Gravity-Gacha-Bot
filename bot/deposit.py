@@ -289,14 +289,27 @@ def collect_grindables(metadata):
     time.sleep(0.5*settings.lag_offset)  # guard to avoid toggling Megalab off
     ASA.structures.inventory.open()
     if template.template_await_true(template.check_template, 1, "inventory", 0.7):
-        ASA.player.player_inventory.search_in_inventory("poly")
-        ASA.structures.inventory.auto_stack()
-        time.sleep(0.15*settings.lag_offset)
-        ASA.player.player_inventory.transfer_all_inventory()
-        ASA.structures.inventory.auto_stack()
-        time.sleep(0.15*settings.lag_offset)
+        # Megalab (crafting stations) often open on the CRAFTING tab; force INVENTORY so Auto Stack is available.
+        ASA.structures.inventory.select_object_inventory_tab()
         time.sleep(0.2*settings.lag_offset)
-        ASA.player.player_inventory.search_in_inventory("")  # clear filter
+
+        # Stack existing polymer in the Megalab BEFORE depositing more.
+        ASA.structures.inventory.search_in_object("poly")
+        ASA.structures.inventory.auto_stack()
+        time.sleep(0.1*settings.lag_offset)
+
+        # Filter player inventory to polymer and transfer only polymer.
+        ASA.player.player_inventory.search_in_inventory("poly")
+        time.sleep(0.1*settings.lag_offset)
+        ASA.player.player_inventory.transfer_all_inventory()
+
+        # Stack again after transfer to consolidate.
+        ASA.structures.inventory.auto_stack()
+        time.sleep(0.1*settings.lag_offset)
+
+        # Clear filters and close.
+        ASA.player.player_inventory.search_in_inventory("")
+        ASA.structures.inventory.search_in_object("")
         ASA.structures.inventory.close()
         template.template_await_false(template.check_template, 1, "inventory", 0.7)
     utils.turn_right(angle)
