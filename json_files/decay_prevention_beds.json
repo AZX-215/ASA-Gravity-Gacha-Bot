@@ -1,0 +1,16 @@
+[
+  {
+    "name": "MegaLab_Station_1",
+    "bed": "MegaLab_Station_1",
+    "post_spawn_delay": 20,
+    "open_seconds": 10,
+    "yaw": 0
+  },
+  {
+    "name": "MegaLab_Station_2",
+    "bed": "MegaLab_Station_2",
+    "post_spawn_delay": 20,
+    "open_seconds": 10,
+    "yaw": 0
+  }
+]

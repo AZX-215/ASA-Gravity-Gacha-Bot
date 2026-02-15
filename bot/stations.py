@@ -580,6 +580,132 @@ class decay_prevention_station(base_task):
         return getattr(settings, "decay_prevention_requeue_delay", 21600)
 
 
+
+class decay_prevention_bed_route(base_task):
+    """Bed/Tekpod-only decay prevention route.
+
+    Walks a configured list of Tekpod bed names (fast travel) and, at each stop:
+      - waits for render
+      - opens tribe log for a configurable duration
+    Travel between stops is done ONLY via bed/tekpod Fast Travel (no teleporters).
+    """
+
+    def __init__(self, name: str, stops: list[dict], delay: float = 0, initial_delay: float = 0):
+        super().__init__()
+        self.name = name or "DecayPreventionBeds"
+        self.stops = stops or []
+        self.delay = float(delay or 0)
+        self.initial_delay = float(initial_delay or 0)
+
+    def execute(self):
+        attempts_max = int(getattr(config, "decay_prevention_beds_attempts", 3) or 3)
+
+        for attempt in range(1, attempts_max + 1):
+            try:
+                player_state.check_state()
+
+                if not getattr(settings, "decay_prevention_beds_enabled", False):
+                    logs.logger.info("[DecayPreventionBeds] Disabled in settings; skipping.")
+                    return
+
+                if not self.stops:
+                    logs.logger.error("[DecayPreventionBeds] No stops configured (decay_prevention_beds.json is empty).")
+                    return
+
+                lag = float(getattr(settings, "lag_offset", 1.0) or 1.0)
+                post_spawn_default = float(getattr(settings, "decay_beds_post_spawn_delay", 20.0) or 0.0)
+                open_default = float(getattr(settings, "decay_beds_open_seconds", 10.0) or 10.0)
+                pitch_down = float(getattr(settings, "decay_beds_pitch_down_degrees", 15.0) or 0.0)
+                start_at_first = bool(getattr(settings, "decay_beds_start_at_first", True))
+                loop_back = bool(getattr(settings, "decay_beds_loop_back_to_first", False))
+
+                for idx, stop in enumerate(self.stops):
+                    stop_name = stop.get("name") or stop.get("station") or stop.get("bed") or f"Stop_{idx+1}"
+                    bed_name = stop.get("bed") or stop.get("bed_name") or stop.get("name")
+
+                    if not bed_name:
+                        logs.logger.warning(f"[DecayPreventionBeds] Invalid stop entry (missing bed): {stop}")
+                        continue
+
+                    # Optional per-stop yaw; if omitted, bed.open_fast_travel_screen falls back to settings.station_yaw.
+                    yaw = stop.get("yaw", None)
+
+                    # Travel to the stop (except first stop if we assume we already start there).
+                    if idx == 0 and not start_at_first:
+                        logs.logger.info(f"[DecayPreventionBeds] Starting at: {stop_name}")
+                    else:
+                        logs.logger.info(f"[DecayPreventionBeds] FastTravel -> {stop_name} ({bed_name})")
+                        ok = bed.fast_travel_to(bed_name, yaw=yaw, pitch_down_degrees=pitch_down,
+                                                attempts=int(getattr(settings, "decay_beds_fast_travel_attempts", 4) or 4))
+                        if not ok:
+                            raise RuntimeError(f"Fast travel failed for '{bed_name}'")
+
+                    # Allow the world to render/stream before opening tribe logs.
+                    post_spawn = float(stop.get("post_spawn_delay", post_spawn_default) or 0.0)
+                    if post_spawn > 0:
+                        time.sleep(post_spawn * lag)
+
+                    tribelog.open()
+                    if not tribelog.is_open():
+                        raise RuntimeError("Tribe log did not open (template not detected).")
+
+                    open_secs = float(stop.get("open_seconds", open_default) or open_default)
+                    time.sleep(open_secs)
+
+                    tribelog.close()
+                    if tribelog.is_open():
+                        raise RuntimeError("Tribe log did not close (still detected).")
+
+                    # Restore yaw/pitch if provided so the next fast travel attempt starts sane.
+                    utils.pitch_zero()
+                    if yaw is not None:
+                        try:
+                            utils.set_yaw(float(yaw))
+                        except Exception:
+                            pass
+
+                    inter_delay = float(stop.get("inter_delay", getattr(settings, "decay_beds_inter_station_delay", 0.0)) or 0.0)
+                    if inter_delay > 0:
+                        time.sleep(inter_delay * lag)
+
+                # Optional: loop back to the first stop at the end of a route pass.
+                if loop_back and self.stops:
+                    first = self.stops[0]
+                    first_bed = first.get("bed") or first.get("bed_name") or first.get("name")
+                    first_yaw = first.get("yaw", None)
+                    if first_bed:
+                        logs.logger.info(f"[DecayPreventionBeds] LoopBack -> {first_bed}")
+                        bed.fast_travel_to(first_bed, yaw=first_yaw, pitch_down_degrees=pitch_down,
+                                           attempts=int(getattr(settings, "decay_beds_fast_travel_attempts", 4) or 4))
+
+                return
+
+            except Exception as e:
+                logs.logger.warning(f"[DecayPreventionBeds] Attempt {attempt}/{attempts_max} failed: {e}")
+
+                # Best-effort cleanup so the next attempt starts in a sane state.
+                try:
+                    tribelog.close()
+                except Exception:
+                    pass
+                try:
+                    utils.pitch_zero()
+                except Exception:
+                    pass
+                time.sleep(1.0 * getattr(settings, "lag_offset", 1.0))
+
+        logs.logger.error(f"[DecayPreventionBeds] Failed after {attempts_max} attempts; giving up until next schedule.")
+
+    def get_priority_level(self):
+        # Same lane as decay_prevention_station (3).
+        return 3
+
+    def get_requeue_delay(self):
+        if self.delay and self.delay > 0:
+            return self.delay
+        return getattr(settings, "decay_prevention_beds_requeue_delay", 21600)
+
+
 class render_station(base_task):
 
     def __init__(self):

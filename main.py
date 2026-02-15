@@ -90,11 +90,12 @@ async def send_new_logs():
         spark = bool(getattr(settings, "sparkpowder_enabled", False))
         gun = bool(getattr(settings, "gunpowder_enabled", False))
         decay = bool(getattr(settings, "decay_prevention_enabled", False))
+        decay_beds = bool(getattr(settings, "decay_prevention_beds_enabled", False))
 
         enabled_line = (
             f"Enabled: pego={_toggle(pego)} | gacha={_toggle(gacha)} | "
             f"crafting={_toggle(crafting)} (spark={_toggle(spark)}, gun={_toggle(gun)}) | "
-            f"decay={_toggle(decay)}"
+            f"decay={_toggle(decay)} | decay_beds={_toggle(decay_beds)}"
         )
 
         # Scheduler stats (best-effort)
@@ -111,7 +112,7 @@ async def send_new_logs():
                     counts_line = (
                         f"Loaded: pego={counts.get('pego', 0)}, gacha={counts.get('gacha', 0)}, "
                         f"collect={counts.get('collect', 0)}, spark={counts.get('sparkpowder', 0)}, "
-                        f"gun={counts.get('gunpowder', 0)}, decay={counts.get('decay_prevention', 0)}, "
+                        f"gun={counts.get('gunpowder', 0)}, decay={counts.get('decay_prevention', 0)}, decay_beds={counts.get('decay_prevention_beds', 0)}, "
                         f"render={counts.get('render', 0)}"
                     )
 

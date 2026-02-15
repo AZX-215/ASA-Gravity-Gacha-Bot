@@ -39,6 +39,23 @@ decay_prevention_open_seconds: float = 10.0
 decay_prevention_post_tp_delay: float = 20.0  # multiplied by lag_offset
 decay_prevention_requeue_delay: int = 21600  # 6 hours fallback if station delay is missing/0
 
+# Auto-decay prevention via Bed/Tekpod Fast Travel (no teleporters).
+# Enable this when running a bed-travel-only profile.
+decay_prevention_beds_enabled: bool = False
+decay_prevention_beds_requeue_delay: int = 21600  # fallback if route delay is missing/0
+
+# Bed-route tuning defaults (can be overridden per-stop in json_files/decay_prevention_beds.json)
+decay_beds_post_spawn_delay: float = 20.0  # seconds after spawn before opening tribe log (multiplied by lag_offset)
+decay_beds_open_seconds: float = 10.0      # seconds to keep tribe log open
+decay_beds_pitch_down_degrees: float = 15.0
+decay_beds_fast_travel_attempts: int = 4
+decay_beds_start_at_first: bool = True     # if True, route begins by fast traveling to the first stop
+decay_beds_loop_back_to_first: bool = False
+decay_beds_inter_station_delay: float = 0.0
+
+# If True, player_state.check_state will avoid teleporting to render bed for food/water fixes (bed-only profile).
+bed_travel_only_mode: bool = False
+
 # Sparkpowder defaults
 sparkpowder_look_degrees: float = 45.0 # Sparkpowder task tuning (safe defaults; adjust after in-game testing)
 sparkpowder_turn_degrees: float = 180.0

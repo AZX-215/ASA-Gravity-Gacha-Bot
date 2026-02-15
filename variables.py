@@ -18,6 +18,9 @@ data = {
     "implant_eat_y": 380,
     "radical_laydown_x": 1550,
     "radical_laydown_y": 620,
+    # Bed/Tekpod radial option for Fast Travel (tune in-game if needed)
+    "radical_fast_travel_x": 1750,
+    "radical_fast_travel_y": 800,
     "first_bed_slot_x": 450,
     "first_bed_slot_y": 300,
     "close_inv_x": 2400,

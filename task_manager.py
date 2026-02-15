@@ -187,6 +187,9 @@ class task_scheduler(metaclass=SingletonMeta):
         if isinstance(task, stations.decay_prevention_station):
             return bool(getattr(settings, "decay_prevention_enabled", False))
 
+
+        if isinstance(task, stations.decay_prevention_bed_route):
+            return bool(getattr(settings, "decay_prevention_beds_enabled", False))
         return True
 
     def _discard_from_tracking(self, task):
@@ -415,6 +418,7 @@ def main():
         "gunpowder": 0,
         "charcoal": 0,
         "decay_prevention": 0,
+        "decay_prevention_beds": 0,
         "render": 0,
     }
 
@@ -426,12 +430,14 @@ def main():
         spark = bool(getattr(settings, "sparkpowder_enabled", False))
         gun = bool(getattr(settings, "gunpowder_enabled", False))
         decay = bool(getattr(settings, "decay_prevention_enabled", False))
+        decay_beds = bool(getattr(settings, "decay_prevention_beds_enabled", False))
 
         logs.logger.info(
             "Enabled task types: "
             f"pego={'ON' if pego else 'OFF'}, "
             f"gacha={'ON' if gacha else 'OFF'}, "
-            f"crafting={'ON' if crafting else 'OFF'}(spark={'ON' if spark else 'OFF'}, gun={'ON' if gun else 'OFF'}), "
+            f"decay_prevention={'ON' if decay else 'OFF'}, "
+            f"decay_prevention_beds={'ON' if decay_beds else 'OFF'}, "
             f"decay_prevention={'ON' if decay else 'OFF'}, "
             "render=ON"
         )
@@ -582,6 +588,17 @@ def main():
             scheduler.add_task(stations.decay_prevention_station(d_name, d_tp, d_delay, d_initial))
             loaded_counts["decay_prevention"] += 1
 
+
+    # ---------------- Auto-decay prevention (Bed/Tekpod Fast Travel; no teleporters) ----------------
+    if getattr(settings, "decay_prevention_beds_enabled", False):
+        stops = load_resolution_data("json_files/decay_prevention_beds.json")
+        if not isinstance(stops, list):
+            logs.logger.error("[DecayPreventionBeds] decay_prevention_beds.json must be a JSON array of stop objects.")
+            stops = []
+
+        # One route task that walks the configured stop list in order.
+        scheduler.add_task(stations.decay_prevention_bed_route("DecayPreventionBeds", stops))
+        loaded_counts["decay_prevention_beds"] += 1
     # Render should always be active (no toggle); bot logic depends on it.
     scheduler.add_task(stations.render_station())
     loaded_counts["render"] += 1
@@ -597,6 +614,7 @@ def main():
         f"sparkpowder={loaded_counts['sparkpowder']}, "
         f"gunpowder={loaded_counts['gunpowder']}, "
         f"decay_prevention={loaded_counts['decay_prevention']}, "
+        f"decay_prevention_beds={loaded_counts['decay_prevention_beds']}, "
         f"render={loaded_counts['render']}"
     )
 

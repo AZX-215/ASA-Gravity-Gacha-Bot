@@ -9,3 +9,4 @@ render_attempts = 3
 sparkpowder_attempts = 3
 gunpowder_attempts = 3
 decay_prevention_attempts = 3
+decay_prevention_beds_attempts = 3
