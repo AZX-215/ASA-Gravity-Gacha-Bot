@@ -138,6 +138,14 @@ def open_fast_travel_screen(yaw: float | None = None, pitch_down_degrees: float 
                 if template.template_await_true(template.check_template, 1.4, "beds_title", 0.7):
                     return True
 
+                # If we hit the wrong radial option (e.g. Rename), we can get stuck in a dialog.
+                # Always attempt to close any modal/UI before trying the next candidate.
+                try:
+                    pyautogui.press("esc")
+                    time.sleep(0.2 * getattr(settings, "lag_offset", 1.0))
+                except Exception:
+                    pass
+
                 # If we accidentally laid down / entered a pod, try to get out before next candidate.
                 try:
                     if ASA.player.buffs.check_buffs().check_buffs() == 1:

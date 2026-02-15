@@ -19,8 +19,10 @@ data = {
     "radical_laydown_x": 1550,
     "radical_laydown_y": 620,
     # Bed/Tekpod radial option for Fast Travel (tune in-game if needed)
-    "radical_fast_travel_x": 1750,
-    "radical_fast_travel_y": 800,
+    # Tekpod radial: Fast Travel is at the TOP of the wheel.
+    # (authored at 2560x1440; auto-mapped to your current client area)
+    "radical_fast_travel_x": 1270,
+    "radical_fast_travel_y": 400,
     "first_bed_slot_x": 450,
     "first_bed_slot_y": 300,
     "close_inv_x": 2400,
