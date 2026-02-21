@@ -295,7 +295,7 @@ def collect_grindables(metadata):
 
         # Stack existing polymer in the Megalab BEFORE depositing more.
         ASA.structures.inventory.search_in_object("poly")
-        ASA.structures.inventory.auto_stack()
+        ASA.structures.inventory.auto_stack(prefer_template=False, clicks=2)
         time.sleep(0.1*settings.lag_offset)
 
         # Filter player inventory to polymer and transfer only polymer.
@@ -304,7 +304,7 @@ def collect_grindables(metadata):
         ASA.player.player_inventory.transfer_all_inventory()
 
         # Stack again after transfer to consolidate.
-        ASA.structures.inventory.auto_stack()
+        ASA.structures.inventory.auto_stack(prefer_template=False, clicks=2)
         time.sleep(0.1*settings.lag_offset)
 
         # Clear filters and close.
