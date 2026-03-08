@@ -1,41 +1,101 @@
-import json 
+import json
+from pathlib import Path
 
-#TO INPUT SETTINGS RUN MAIN.PY OR GO TO JSON_FILES/SETTINGS.JSON
-#TO INPUT SETTINGS RUN MAIN.PY OR GO TO JSON_FILES/SETTINGS.JSON
-#TO INPUT SETTINGS RUN MAIN.PY OR GO TO JSON_FILES/SETTINGS.JSON
-#TO INPUT SETTINGS RUN MAIN.PY OR GO TO JSON_FILES/SETTINGS.JSON
+SETTINGS_FILE = Path(__file__).resolve().parent / "json_files" / "settings.json"
 
-with open("json_files/settings.json", "r", encoding='utf-8') as f:
-    data = json.load(f)
+DEFAULT_SETTINGS = {
+    "screen_resolution": 1440,
+    "base_path": null,
+    "enable_resolution_mapping": true,
+    "lag_offset": 1.4,
+    "ui_layout_mode": "centered_16_9",
+    "use_hdr_templates": false,
+    "iguanadon": "GACHAIGUANADON",
+    "open_crystals": "GACHACRYSOPEN",
+    "drop_off": "GACHADEDI",
+    "bed_spawn": "GACHARENDER",
+    "berry_station": "GACHABERRYSTATION",
+    "grindables": "GACHAGRINDABLES",
+    "berry_type": "berry",
+    "station_yaw": -141.27,
+    "render_pushout": 170.54,
+    "height_ele": 3,
+    "height_grind": 3,
+    "command_prefix": "%",
+    "server_number": 9306,
+    "singleplayer": false,
+    "seeds_230": false,
+    "external_berry": false,
+    "pego_enabled": true,
+    "gacha_enabled": true,
+    "crafting": true,
+    "sparkpowder_enabled": true,
+    "charcoal_enabled": false,
+    "gunpowder_enabled": false,
+    "decay_prevention_enabled": false,
+    "decay_prevention_open_seconds": 10.0,
+    "decay_prevention_post_tp_delay": 20.0,
+    "decay_prevention_requeue_delay": 21600,
+    "decay_prevention_beds_enabled": false,
+    "decay_prevention_beds_requeue_delay": 21600,
+    "decay_beds_post_spawn_delay": 20.0,
+    "decay_beds_open_seconds": 10.0,
+    "decay_beds_pitch_down_degrees": 15.0,
+    "decay_beds_fast_travel_attempts": 4,
+    "decay_beds_start_at_first": true,
+    "decay_beds_loop_back_to_first": false,
+    "decay_beds_inter_station_delay": 0.0,
+    "bed_travel_only_mode": false,
+    "sparkpowder_look_degrees": 45.0,
+    "sparkpowder_turn_degrees": 180.0,
+    "sparkpowder_craft_seconds": 2,
+    "sparkpowder_requeue_delay": 1800,
+    "gunpowder_look_degrees": -25.0,
+    "gunpowder_turn_degrees": 180.0,
+    "gunpowder_craft_seconds": 2,
+    "gunpowder_requeue_delay": 1800,
+    "log_channel_gacha": 1332520268895354911,
+    "log_channel_alerts": 1463991585665450035,
+    "log_active_queue": 1445620377177817149,
+    "log_wait_queue": 1332520069225512961,
+    "queue_preview_limit": 10,
+    "alert_send_spacing_sec": 1.5,
+    "alert_max_messages_per_tick": 1,
+    "alert_max_pending_lines": 600,
+    "alert_flush_interval_sec": 10.0,
+    "alert_dedup_window_sec": 120.0,
+    "alert_panel_max_entries": 25,
+    "alert_panel_max_chars": 1800,
+    "alert_send_cooldown_sec": 2.0,
+    "discord_api_key": "key_goes_here"
+}
 
-screen_resolution: str = data["screen_resolution"] # No longer in use. Just here cause people are thoughtless.
-base_path: str = data["base_path"] # No longer in use. Just here cause people are thoughtless.
-lag_offset: float = data["lag_offset"]
-iguanadon: str = data["iguanadon"]
-drop_off: str = data["drop_off"]
-bed_spawn: str = data["bed_spawn"]
-berry_station: str = data["berry_station"]
-grindables: str = data["grindables"]
-berry_type: str = data["berry_type"]
-station_yaw: float = data["station_yaw"]
-render_pushout: float = data["render_pushout"]
-external_berry: bool = data["external_berry"]
-height_ele: int = data["height_ele"]
-height_grind: int = data["height_grind"]
-command_prefix: str = data["command_prefix"]
-singleplayer: bool = data["singleplayer"]
-server_number: str = data["server_number"]
-crafting: bool = data["crafting"]
-seeds_230: bool = data["seeds_230"]
-side_crop_plot: bool = data["side_crop_plot"]
-y_trap_bot: bool = data["y_trap_bot"]
+def _coerce_types(data: dict) -> dict:
+    merged = dict(DEFAULT_SETTINGS)
+    merged.update(data or {})
+    return merged
 
-#YOUR discord channel IDs and bot API key. To find channel IDs enable developer mode in discord and right click the channel to copy ID.
-log_channel_gacha = data["log_channel_gacha"]
-log_active_queue = data["log_active_queue"]
-log_wait_queue = data["log_wait_queue"]
-discord_api_key = data["discord_api_key"]
+def load_settings() -> dict:
+    if not SETTINGS_FILE.exists():
+        save_settings(DEFAULT_SETTINGS)
+        return dict(DEFAULT_SETTINGS)
+    try:
+        data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        data = {}
+    merged = _coerce_types(data)
+    # Write back missing keys so the file stays current with new settings.
+    if merged != data:
+        save_settings(merged)
+    return merged
 
+def save_settings(data: dict) -> None:
+    SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    merged = _coerce_types(data)
+    SETTINGS_FILE.write_text(json.dumps(merged, indent=4), encoding="utf-8")
 
-if __name__ =="__main__":
-    pass
+data = load_settings()
+globals().update(data)
+
+if __name__ == "__main__":
+    print(json.dumps(data, indent=4))

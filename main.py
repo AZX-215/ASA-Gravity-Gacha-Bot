@@ -1,212 +1,174 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
 import json
-import os
 import subprocess
 import sys
-import threading
-from source.utility.colour_checks import console_output,output_oranage_tp_pixel
-SETTINGS_FILE = "json_files/settings.json"
+from pathlib import Path
+import tkinter as tk
+from tkinter import ttk, messagebox
 
-default_settings = {
-    "screen_resolution":"VALUE DOES NOT MATTER",
-    "base_path":"VALUE DOES NOT MATTER",
-    "lag_offset": 1.0,
-    "iguanadon": "GACHAIGUANADON",
-    "drop_off": "GACHADEDI",
-    "bed_spawn": "GACHARENDER",
-    "berry_station": "GACHABERRYSTATION",
-    "grindables": "GACHAGRINDABLES",
-    "berry_type": "mejoberry",
-    "station_yaw": 0.0,
-    "render_pushout": 0.0,
-    "height_ele": 3,
-    "height_grind": 3,
-    "command_prefix": "%",
-    "server_number": "0",
-    "singleplayer": False,
-    "external_berry": False,
-    "crafting": False,
-    "seeds_230": False,
-    "side_crop_plot":False,
-    "y_trap_bot":False,
-    "log_channel_gacha": "",
-    "log_active_queue": "",
-    "log_wait_queue": "",
-    "discord_api_key": ""
-}
-
+ROOT = Path(__file__).resolve().parent
+SETTINGS_FILE = ROOT / "json_files" / "settings.json"
+BOT_PROGRAM = ROOT / "main_program.py"
 
 def load_settings():
-    if not os.path.exists(SETTINGS_FILE):
-        save_settings(default_settings)
-        return default_settings.copy()
-
-    with open(SETTINGS_FILE, "r") as f:
-        return json.load(f)
-
+    try:
+        return json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
 
 def save_settings(data):
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(data, f, indent=4)
+    SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SETTINGS_FILE.write_text(json.dumps(data, indent=4), encoding="utf-8")
 
+def infer_type(value):
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, int) and not isinstance(value, bool):
+        return "int"
+    if isinstance(value, float):
+        return "float"
+    if value is None:
+        return "none"
+    return "str"
 
 class SettingsGUI:
-
     def __init__(self, root):
         self.root = root
-        self.root.title("Settings Launcher")
-        self.root.geometry("1400x800")
-
+        self.root.title("ASA Gravity Gacha Bot Launcher")
+        self.root.geometry("1200x820")
         self.process = None
+        self.settings = load_settings()
         self.vars = {}
+        self.types = {}
 
         style = ttk.Style()
-        style.theme_use("clam")
+        try:
+            style.theme_use("clam")
+        except Exception:
+            pass
 
-        self.root.configure(bg="#2b2b2b")
+        root.configure(bg="#1f1f1f")
+        style.configure(".", background="#1f1f1f", foreground="white")
+        style.configure("TLabel", background="#1f1f1f", foreground="white")
+        style.configure("TFrame", background="#1f1f1f")
+        style.configure("TButton", padding=6)
+        style.configure("TCheckbutton", background="#1f1f1f", foreground="white")
+        style.configure("TEntry", fieldbackground="#2b2b2b", foreground="white")
 
-        style.configure(".", background="#2b2b2b", foreground="white")
-        style.configure("TLabel", background="#2b2b2b", foreground="white")
-        style.configure("TFrame", background="#2b2b2b")
-        style.configure("TButton", background="#3c3f41", foreground="white")
-        style.configure("TCheckbutton", background="#2b2b2b", foreground="white")
-        style.configure("TEntry",
-                        fieldbackground="#3c3f41",
-                        foreground="white")
+        outer = ttk.Frame(root, padding=12)
+        outer.pack(fill="both", expand=True)
 
-        main_frame = ttk.Frame(self.root, padding=10)
-        main_frame.pack(fill="both", expand=True)
+        title = ttk.Label(outer, text="Settings", font=("Segoe UI", 16, "bold"))
+        title.pack(anchor="w", pady=(0, 8))
 
-        main_frame.columnconfigure(0, weight=0)
-        main_frame.columnconfigure(1, weight=1)
-        main_frame.rowconfigure(0, weight=1)
+        body = ttk.Frame(outer)
+        body.pack(fill="both", expand=True)
 
-        left_frame = ttk.Frame(main_frame)
-        left_frame.grid(row=0, column=0, sticky="ns")
+        canvas = tk.Canvas(body, bg="#1f1f1f", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(body, orient="vertical", command=canvas.yview)
+        self.inner = ttk.Frame(canvas)
 
-        right_frame = ttk.Frame(main_frame)
-        right_frame.grid(row=0, column=1, sticky="nsew", padx=(15, 0))
+        self.inner.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
 
-        self.settings = load_settings()
+        canvas.create_window((0, 0), window=self.inner, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
 
-        row = 0
-        for key, default_value in default_settings.items():
-            ttk.Label(left_frame, text=key).grid(row=row, column=0, sticky="w", pady=2)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
-            value = self.settings.get(key, default_value)
+        self._build_fields()
 
-            if isinstance(default_value, bool):
+        btns = ttk.Frame(outer)
+        btns.pack(fill="x", pady=(10, 0))
+
+        ttk.Button(btns, text="Save Settings", command=self.save).pack(side="left")
+        ttk.Button(btns, text="Start Bot", command=self.start_bot).pack(side="left", padx=(8, 0))
+        ttk.Button(btns, text="Stop Bot", command=self.stop_bot).pack(side="left", padx=(8, 0))
+        ttk.Button(btns, text="Reload From Disk", command=self.reload).pack(side="left", padx=(8, 0))
+
+        self.status_var = tk.StringVar(value="Idle")
+        ttk.Label(outer, textvariable=self.status_var).pack(anchor="w", pady=(10, 0))
+
+    def _build_fields(self):
+        for child in self.inner.winfo_children():
+            child.destroy()
+
+        for row, key in enumerate(sorted(self.settings.keys())):
+            value = self.settings[key]
+            val_type = infer_type(value)
+            self.types[key] = val_type
+            ttk.Label(self.inner, text=key).grid(row=row, column=0, sticky="w", padx=(0, 12), pady=4)
+
+            if val_type == "bool":
                 var = tk.BooleanVar(value=value)
-                ttk.Checkbutton(left_frame, variable=var).grid(row=row, column=1, sticky="w")
+                widget = ttk.Checkbutton(self.inner, variable=var)
+                widget.grid(row=row, column=1, sticky="w", pady=4)
             else:
-                var = tk.StringVar(value=str(value))
-                show = "*" if key == "discord_api_key" else ""
-                ttk.Entry(left_frame, textvariable=var, show=show, width=25).grid(row=row, column=1)
+                var = tk.StringVar(value="" if value is None else str(value))
+                widget = ttk.Entry(self.inner, textvariable=var, width=60)
+                widget.grid(row=row, column=1, sticky="ew", pady=4)
 
             self.vars[key] = var
-            row += 1
 
-        ttk.Button(left_frame, text="Save Settings",
-                   command=self.save).grid(row=row, column=0, columnspan=2, pady=10)
+        self.inner.columnconfigure(1, weight=1)
 
-        row += 1
+    def _collect(self):
+        data = {}
+        for key, var in self.vars.items():
+            raw = var.get()
+            typ = self.types[key]
+            if typ == "bool":
+                data[key] = bool(raw)
+            elif typ == "int":
+                data[key] = int(raw)
+            elif typ == "float":
+                data[key] = float(raw)
+            elif typ == "none":
+                data[key] = None if raw in ("", "None", "none", "null") else raw
+            else:
+                data[key] = raw
+        return data
 
-        ttk.Button(left_frame, text="Start Program",
-                   command=self.start_program).grid(row=row, column=0, columnspan=2, pady=5)
-
-        row += 1
-
-        ttk.Button(left_frame, text="Stop Program",
-                   command=self.stop_program).grid(row=row, column=0, columnspan=2, pady=5)
-        row += 1
-        
-        ttk.Button(left_frame, text="Test console Colours",
-                   command=self.check_colours).grid(row=row, column=0, columnspan=2, pady=5)
-
-        right_frame.columnconfigure(0, weight=1)
-        right_frame.rowconfigure(0, weight=1)
-
-        self.log_text = tk.Text(
-            right_frame,
-            bg="#1e1e1e",
-            fg="white",
-            insertbackground="white",
-            wrap="word"
-        )
-        self.log_text.grid(row=0, column=0, sticky="nsew")
-
-        scrollbar = ttk.Scrollbar(right_frame, command=self.log_text.yview)
-        scrollbar.grid(row=0, column=1, sticky="ns")
-
-        self.log_text.config(yscrollcommand=scrollbar.set)
-
-  
     def save(self):
-        new_data = {}
-
         try:
-            for key, var in self.vars.items():
-                value = var.get()
-                default_value = default_settings[key]
+            data = self._collect()
+            save_settings(data)
+            self.settings = data
+            self.status_var.set("Settings saved")
+        except Exception as exc:
+            messagebox.showerror("Save failed", str(exc))
 
-                if isinstance(default_value, bool):
-                    new_data[key] = var.get()
-                elif isinstance(default_value, int):
-                    new_data[key] = int(value)
-                elif isinstance(default_value, float):
-                    new_data[key] = float(value)
-                else:
-                    new_data[key] = value
+    def reload(self):
+        self.settings = load_settings()
+        self.vars.clear()
+        self.types.clear()
+        self._build_fields()
+        self.status_var.set("Reloaded settings.json")
 
-            save_settings(new_data)
-            messagebox.showinfo("Success", "Settings saved successfully!")
-
-        except ValueError:
-            messagebox.showerror("Error", "Invalid number format.")
-
-    
-    def start_program(self):
-        if self.process and self.process.poll() is None:
-            messagebox.showinfo("Info", "Program already running.")
-            return
-
+    def start_bot(self):
         try:
-            self.process = subprocess.Popen(
-                [sys.executable, "-u", "main_program.py"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1
-            )
+            self.save()
+            if self.process and self.process.poll() is None:
+                self.status_var.set("Bot already running")
+                return
+            self.process = subprocess.Popen([sys.executable, str(BOT_PROGRAM)], cwd=str(ROOT))
+            self.status_var.set(f"Bot running (PID {self.process.pid})")
+        except Exception as exc:
+            messagebox.showerror("Start failed", str(exc))
 
-            threading.Thread(target=self.read_output, daemon=True).start()
-
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
- 
-    def stop_program(self):
+    def stop_bot(self):
         if self.process and self.process.poll() is None:
             self.process.terminate()
-            self.process = None
-            messagebox.showinfo("Stopped","Program Terminated")
+            self.status_var.set("Bot stopped")
         else:
-            messagebox.showinfo("Info","no running program ")
+            self.status_var.set("No running bot process")
 
-    def read_output(self):
-        for line in self.process.stdout:
-            self.log_text.after(0, self.append_log, line)
-
-    def append_log(self, text):
-        self.log_text.insert("end", text)
-        self.log_text.see("end")
-
-    def check_colours(self):
-        self.append_log(f"the average console colour was :{console_output.output_mean_colour()} go to console.json and set +and - 5 from this in the respected section IE upperbound = average+5\n")
-        #self.append_log(f"{output_oranage_tp_pixel.get_orange_pixel()} -> these colours should be put into xxxxxx location in xxxx file ")
+def main():
+    root = tk.Tk()
+    SettingsGUI(root)
+    root.mainloop()
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = SettingsGUI(root)
-    root.mainloop()
+    main()
