@@ -10,7 +10,7 @@ Latest development branch with Caleb's updates**.
 - Added a `source/` package layout with compatibility wrappers pointing at the current modules, so Caleb-style imports can coexist with the existing code.
 - Added Caleb's `source/discord_commands`, `source/join_sim`, colour-check utilities, OCR helper, `source/ASA/inventories/structures.py`, and dedi/crop/forge helper modules.
 - Added `json_files/dedis.json`.
-- Updated `requirements.txt` to include `pygetwindow` and `pytesseract`.
+- Updated `requirements.txt` to include `pygetwindow` and `pytesseract`..
 
 ## Important behavior choice
 The **current runtime logic remains the authoritative path**:
