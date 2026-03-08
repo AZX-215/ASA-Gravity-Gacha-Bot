@@ -29,6 +29,10 @@ bot_started = False
 LOG_FILE_PATH = (Path(__file__).resolve().parent / "logs" / "logs.txt").resolve()
 LOG_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+# Safe staged command migration flags
+USE_MODULAR_COMMAND_TREE = bool(getattr(settings, "use_modular_command_tree", False))
+LOAD_DEDI_COMMANDS = bool(getattr(settings, "load_dedi_commands", False))
+
 def load_json(json_file:str):
     try:
         with open(json_file, 'r') as f:
@@ -41,16 +45,25 @@ def save_json(json_file:str,data):
         json.dump(data, f, indent=4)
 
 
-async def load_optional_source_cogs():
-    """Stage Caleb cogs behind a feature flag so they never replace your current runtime by accident."""
-    if not bool(getattr(settings, "load_source_cogs", False)):
-        return
 
-    extensions = [
-        "source.discord_commands.pego_commands",
-        "source.discord_commands.gacha_commands",
-        "source.discord_commands.dedi_commands",
-    ]
+async def load_optional_source_cogs():
+    """Load staged Caleb command modules without overwriting your current command tree.
+
+    - use_modular_command_tree=True: load the full modular command system and skip root slash commands.
+    - load_dedi_commands=True: load only the non-conflicting dedi cog while keeping your current root commands.
+    - legacy load_source_cogs=True no longer force-loads conflicting cogs; that setting is treated as an opt-in hint only.
+    """
+    extensions = []
+
+    if USE_MODULAR_COMMAND_TREE:
+        extensions = [
+            "source.discord_commands.commands",
+            "source.discord_commands.pego_commands",
+            "source.discord_commands.gacha_commands",
+            "source.discord_commands.dedi_commands",
+        ]
+    elif LOAD_DEDI_COMMANDS or bool(getattr(settings, "load_source_cogs", False)):
+        extensions = ["source.discord_commands.dedi_commands"]
 
     for ext in extensions:
         try:
@@ -58,7 +71,6 @@ async def load_optional_source_cogs():
             print(f"loaded optional extension: {ext}")
         except Exception as exc:
             print(f"failed to load optional extension {ext}: {exc}")
-
 
 async def send_new_logs():
     """Live log panel in Discord.
@@ -290,86 +302,87 @@ async def send_new_logs():
 
         await asyncio.sleep(5)
 
-@bot.tree.command(name="add_gacha", description="add a new gacha station to the data")
-async def add_gacha(interaction: discord.Interaction, name: str, teleporter: str, resource_type: str ,direction: str):
-    data = load_json("json_files/gacha.json")
 
-    for entry in data:
-        if entry["name"] == name:
-            await interaction.response.send_message(f"a gacha station with the name '{name}' already exists", ephemeral=True)
+if not USE_MODULAR_COMMAND_TREE:
+    @bot.tree.command(name="add_gacha", description="add a new gacha station to the data")
+    async def add_gacha(interaction: discord.Interaction, name: str, teleporter: str, resource_type: str, direction: str):
+        data = load_json("json_files/gacha.json")
+
+        for entry in data:
+            if entry["name"] == name:
+                await interaction.response.send_message(
+                    f"a gacha station with the name '{name}' already exists", ephemeral=True
+                )
+                return
+
+        new_entry = {
+            "name": name,
+            "teleporter": teleporter,
+            "resource_type": resource_type,
+            "side": direction,
+        }
+        data.append(new_entry)
+        save_json("json_files/gacha.json", data)
+        await interaction.response.send_message(f"added new gacha station: {name}")
+
+    @bot.tree.command(name="list_gacha", description="list all gacha stations")
+    async def list_gacha(interaction: discord.Interaction):
+        data = load_json("json_files/gacha.json")
+        if not data:
+            await interaction.response.send_message("no gacha stations found", ephemeral=True)
             return
-        
-    new_entry = {
-        "name": name,
-        "teleporter": teleporter,
-        "resource_type": resource_type,
-        "side" : direction
-    }
-    data.append(new_entry)
 
-    save_json("json_files/gacha.json",data)
+        response = "gacha Stations:\n"
+        for entry in data:
+            response += (
+                f"- **{entry['name']}**: teleporter `{entry['teleporter']}`, "
+                f"resource `{entry['resource_type']}` gacha on the `{entry['side']}` side\n"
+            )
 
-    await interaction.response.send_message(f"added new gacha station: {name}")
+        await interaction.response.send_message(response)
 
-@bot.tree.command(name="list_gacha", description="list all gacha stations")
-async def list_gacha(interaction: discord.Interaction):
+    @bot.tree.command(name="add_pego", description="add a new pego station to the data")
+    async def add_pego(interaction: discord.Interaction, name: str, teleporter: str, delay: int):
+        data = load_json("json_files/pego.json")
 
-    data = load_json("json_files/gacha.json")
-    if not data:
-        await interaction.response.send_message("no gacha stations found", ephemeral=True)
-        return
+        for entry in data:
+            if entry["name"] == name:
+                await interaction.response.send_message(
+                    f"a pego station with the name '{name}' already exists", ephemeral=True
+                )
+                return
 
+        new_entry = {
+            "name": name,
+            "teleporter": teleporter,
+            "delay": delay,
+        }
+        data.append(new_entry)
+        save_json("json_files/pego.json", data)
+        await interaction.response.send_message(f"added new pego station: {name}")
 
-    response = "gacha Stations:\n"
-    for entry in data:
-        response += f"- **{entry['name']}**: teleporter `{entry['teleporter']}`, resource `{entry['resource_type']} gacha on the `{entry['side']}` side `\n"
-
-    await interaction.response.send_message(response)
-
-
-@bot.tree.command(name="add_pego", description="add a new pego station to the data")
-
-async def add_pego(interaction: discord.Interaction, name: str, teleporter: str, delay: int):
-    data = load_json("json_files/pego.json")
-
-    for entry in data:
-        if entry["name"] == name:
-            await interaction.response.send_message(f"a pego station with the name '{name}' already exists", ephemeral=True)
+    @bot.tree.command(name="list_pego", description="list all pego stations")
+    async def list_pego(interaction: discord.Interaction):
+        data = load_json("json_files/pego.json")
+        if not data:
+            await interaction.response.send_message("no pego stations found", ephemeral=True)
             return
-        
-    new_entry = {
-        "name": name,
-        "teleporter": teleporter,
-        "delay": delay
-    }
-    data.append(new_entry)
 
-    save_json("json_files/pego.json",data)
+        response = "pego Stations:\n"
+        for entry in data:
+            response += f"- **{entry['name']}**: teleporter `{entry['teleporter']}`, delay `{entry['delay']}`\n"
 
-    await interaction.response.send_message(f"added new pego station: {name}")
+        await interaction.response.send_message(response)
 
-@bot.tree.command(name="list_pego", description="list all pego stations")
-async def list_pego(interaction: discord.Interaction):
+    @bot.tree.command(name="pause", description="sends the bot back to render bed for X amount of seconds")
+    async def reset(interaction: discord.Interaction, time: int):
+        task = task_manager.scheduler
+        pause_task = stations.pause(time)
+        task.add_task(pause_task)
+        await interaction.response.send_message(
+            f"pause task added will now pause for {time} seconds once the next task finishes"
+        )
 
-    data = load_json("json_files/pego.json")
-    if not data:
-        await interaction.response.send_message("no pego stations found", ephemeral=True)
-        return
-
-
-    response = "pego Stations:\n"
-    for entry in data:
-        response += f"- **{entry['name']}**: teleporter `{entry['teleporter']}`, delay `{entry['delay']}`\n"
-
-    await interaction.response.send_message(response)
-
-@bot.tree.command(name="pause", description="sends the bot back to render bed for X amount of seconds")
-async def reset(interaction: discord.Interaction,time:int):
-    task = task_manager.scheduler
-    pause_task = stations.pause(time)
-    task.add_task(pause_task)
-    await interaction.response.send_message(f"pause task added will now pause for {time} seconds once the next task finishes")
-    
 async def embed_send(queue_type):
     """Continuously update queue panels.
 
@@ -407,51 +420,50 @@ async def embed_send(queue_type):
 
         await asyncio.sleep(30)
 
-@bot.tree.command()
-async def start(interaction: discord.Interaction):
-    global running_tasks
-    global bot_started
-    if bot_started:
-        await interaction.response.send_message("bot already started")
-        return
-    bot_started = True
-    logchn = bot.get_channel(settings.log_channel_gacha) 
-    if logchn:
-        await logchn.send(f'bot starting up now')
-    
-    # resetting log files
-    with open(LOG_FILE_PATH, 'w', encoding="utf-8") as file:
-        file.write("")
-    running_tasks.append(bot.loop.create_task(send_new_logs()))
-    
-    
-    await interaction.response.send_message(f"starting up bot now you have 5 seconds before start")
-    await asyncio.sleep(5)
-    running_tasks.append(asyncio.create_task(botoptions.task_manager_start()))
-    while task_manager.started == False:
-        await asyncio.sleep(1)
-    running_tasks.append(bot.loop.create_task(embed_send("active_queue")))
-    running_tasks.append(bot.loop.create_task(embed_send("waiting_queue")))
-    
-@bot.tree.command()
-async def shutdown(interaction: discord.Interaction):
-    await interaction.response.send_message("Shutting down script...")
-    print("Shutting down script...")
-    cmd_windows = [win for win in gw.getAllWindows() if "cmd" in win.title.lower() or "system32" in win.title.lower()]
 
-    if cmd_windows:
-        cmd_window = cmd_windows[0]  
-        hwnd = cmd_window._hWnd  
+if not USE_MODULAR_COMMAND_TREE:
+    @bot.tree.command()
+    async def start(interaction: discord.Interaction):
+        global running_tasks
+        global bot_started
+        if bot_started:
+            await interaction.response.send_message("bot already started")
+            return
+        bot_started = True
+        logchn = bot.get_channel(settings.log_channel_gacha)
+        if logchn:
+            await logchn.send("bot starting up now")
 
-        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE) 
-        win32gui.SetForegroundWindow(hwnd)  
-        time.sleep(1)         
-        win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
-        print("Shutting down...")
-        sys.exit() 
-    else:
-        print("No CMD window found.")
+        with open(LOG_FILE_PATH, "w", encoding="utf-8") as file:
+            file.write("")
+        running_tasks.append(bot.loop.create_task(send_new_logs()))
 
+        await interaction.response.send_message("starting up bot now you have 5 seconds before start")
+        await asyncio.sleep(5)
+        running_tasks.append(asyncio.create_task(botoptions.task_manager_start()))
+        while task_manager.started == False:
+            await asyncio.sleep(1)
+        running_tasks.append(bot.loop.create_task(embed_send("active_queue")))
+        running_tasks.append(bot.loop.create_task(embed_send("waiting_queue")))
+
+    @bot.tree.command()
+    async def shutdown(interaction: discord.Interaction):
+        await interaction.response.send_message("Shutting down script...")
+        print("Shutting down script...")
+        cmd_windows = [win for win in gw.getAllWindows() if "cmd" in win.title.lower() or "system32" in win.title.lower()]
+
+        if cmd_windows:
+            cmd_window = cmd_windows[0]
+            hwnd = cmd_window._hWnd
+
+            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+            win32gui.SetForegroundWindow(hwnd)
+            time.sleep(1)
+            win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
+            print("Shutting down...")
+            sys.exit()
+        else:
+            print("No CMD window found.")
 
 @bot.event
 async def on_ready():

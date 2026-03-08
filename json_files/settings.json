@@ -64,5 +64,7 @@
     "alert_send_cooldown_sec": 2.0,
     "discord_api_key": "key_goes_here",
     "use_join_sim_reconnect": false,
-    "load_source_cogs": false
+    "load_source_cogs": false,
+    "use_modular_command_tree": false,
+    "load_dedi_commands": false
 }
