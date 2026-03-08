@@ -8,6 +8,7 @@ import settings
 import json
 import time
 import logs.discordbot as discordbot
+from logs.alert_panel import AlertPanel
 import bot.stations as stations
 import task_manager
 import win32gui
@@ -38,6 +39,26 @@ def load_json(json_file:str):
 def save_json(json_file:str,data):
     with open(json_file, 'w') as f:
         json.dump(data, f, indent=4)
+
+
+async def load_optional_source_cogs():
+    """Stage Caleb cogs behind a feature flag so they never replace your current runtime by accident."""
+    if not bool(getattr(settings, "load_source_cogs", False)):
+        return
+
+    extensions = [
+        "source.discord_commands.pego_commands",
+        "source.discord_commands.gacha_commands",
+        "source.discord_commands.dedi_commands",
+    ]
+
+    for ext in extensions:
+        try:
+            await bot.load_extension(ext)
+            print(f"loaded optional extension: {ext}")
+        except Exception as exc:
+            print(f"failed to load optional extension {ext}: {exc}")
+
 
 async def send_new_logs():
     """Live log panel in Discord.
@@ -434,6 +455,7 @@ async def shutdown(interaction: discord.Interaction):
 
 @bot.event
 async def on_ready():
+    await load_optional_source_cogs()
     await bot.tree.sync()
     
     logchn = bot.get_channel(settings.log_channel_gacha) 
