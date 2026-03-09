@@ -62,7 +62,7 @@ def resource_finder(resource,dedi_stack):
         return [dedi_stack["dediID"],found_id]    
 
 def find_dedis_with_resource(resource):
-    dedi_data = load_dedi_data("json_files\dedis.json")
+    dedi_data = load_dedi_data("json_files/dedis.json")
     locations = []
     for x in range(len(dedi_data)):
         data = resource_finder(resource,dedi_data[x])
@@ -71,7 +71,7 @@ def find_dedis_with_resource(resource):
     return locations
     
 def get_info_on_dedi(dedi_id,position):
-    full_file = load_dedi_data("json_files\dedis.json")
+    full_file = load_dedi_data("json_files/dedis.json")
     for x in range(len(full_file)):
         if dedi_id == full_file[x]["dediID"]:
             #print(full_file[x]["dediBoxes"][position])
@@ -106,7 +106,7 @@ def dedi_deposit(dedi_type:str,dedi_height:int):
     '''
     i guess with this you could put more dedis than the default numbers of 6 or 4 depending on if the bot can reach them 
     '''
-    full_file = load_dedi_data("json_files\dedis.json")
+    full_file = load_dedi_data("json_files/dedis.json")
     utils.pitch_zero()
     utils.set_yaw(settings.station_yaw)
     for x in range(len(full_file)):

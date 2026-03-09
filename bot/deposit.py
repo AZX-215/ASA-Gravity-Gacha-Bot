@@ -213,6 +213,42 @@ def dedi_deposit_custom_2(height):
     _dedi_deposit_custom_2_fallback(height)
 
 
+
+def run_named_deposit_profile(profile_name, height):
+    """Execute a named deposit profile while preserving hard-coded fallbacks.
+
+    Returns True if a known profile name was handled. Unknown/empty names fall back to the
+    caller's existing default behavior.
+    """
+    normalized = str(profile_name or '').strip().lower()
+    if not normalized:
+        return False
+
+    aliases = {
+        'deposit_default_h3': dedi_deposit,
+        'deposit_default': dedi_deposit,
+        'default': dedi_deposit,
+        'deposit_alt_h3': dedi_deposit_alt,
+        'deposit_alt': dedi_deposit_alt,
+        'alt': dedi_deposit_alt,
+        'deposit_custom_1_h3': dedi_deposit_custom_1,
+        'deposit_custom_1': dedi_deposit_custom_1,
+        'custom_1': dedi_deposit_custom_1,
+        'deposit_custom_2_h3': dedi_deposit_custom_2,
+        'deposit_custom_2': dedi_deposit_custom_2,
+        'custom_2': dedi_deposit_custom_2,
+        'deposit_charcoal_h3': dedi_deposit_charcoal,
+        'deposit_charcoal': dedi_deposit_charcoal,
+        'charcoal': dedi_deposit_charcoal,
+    }
+
+    handler = aliases.get(normalized)
+    if handler is None:
+        return False
+
+    handler(height)
+    return True
+
 def vault_deposit(items, metadata):
     side = metadata.side
     if side == "right":

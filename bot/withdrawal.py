@@ -62,3 +62,31 @@ def element_withdraw_at_charcoal_station():
     time.sleep(0.3 * settings.lag_offset)
     utils.turn_right(90)
     time.sleep(0.3 * settings.lag_offset)
+
+
+
+def run_named_withdraw_profile(profile_name: str | None, station_name: str | None = None):
+    """Execute a named withdrawal profile with safe fallbacks.
+
+    This lets station/task routing move to JSON without removing your current withdrawal helpers.
+    """
+    normalized = str(profile_name or '').strip().lower()
+
+    if normalized:
+        if dedi_profiles.execute_profile(normalized, context=f"run_named_withdraw_profile:{station_name or 'unknown'}"):
+            return True
+        if normalized in {'withdraw_charcoal_element', 'charcoal_element', 'element_charcoal'}:
+            element_withdraw_at_charcoal_station()
+            return True
+        if normalized in {
+            'withdraw_wood_placeholder_default',
+            'wood_placeholder_default',
+            'wood_placeholder',
+        } and station_name:
+            wood_dedi_withdraw_placeholder(station_name)
+            return True
+
+    if station_name:
+        wood_dedi_withdraw_placeholder(station_name)
+        return True
+    return False
