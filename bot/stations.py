@@ -7,14 +7,36 @@ import utils
 from ASA.structures import bed , teleporter , inventory
 from ASA.player import buffs , console , player_state , tribelog , player_inventory
 from ASA.stations import custom_stations
-from bot import config , deposit , gacha , iguanadon , pego , withdrawal
+from bot import config , deposit , gacha , iguanadon , pego , station_routing , withdrawal
 from crafting.ARB import megalab as megalab_crafting
 from crafting.ARB import steam_forge
 from abc import ABC ,abstractmethod
 global berry_station
 global last_berry
 last_berry = 0
+
 berry_station = True
+
+
+def _float_or_default(value, default):
+    try:
+        if value is None:
+            return float(default)
+        return float(value)
+    except Exception:
+        return float(default)
+
+
+def _run_station_deposit_profile(profile_name, height, fallback_profile='deposit_default_h3'):
+    target = profile_name or fallback_profile
+    if deposit.run_named_deposit_profile(target, height):
+        return True
+    return deposit.run_named_deposit_profile(fallback_profile, height)
+
+
+def _run_station_withdraw_profile(profile_name, station_name=None):
+    return withdrawal.run_named_withdraw_profile(profile_name, station_name)
+
 
 class base_task(ABC):
     def __init__(self):
@@ -150,6 +172,7 @@ class sparkpowder_station(base_task):
 
         for attempt in range(1, attempts_max + 1):
             meta = None
+            station_yaw = self.station_yaw
             try:
                 player_state.check_state()
 
@@ -167,12 +190,25 @@ class sparkpowder_station(base_task):
                 utils.pitch_zero()
                 time.sleep(0.15 * settings.lag_offset)
 
+                route = station_routing.get_station_route(
+                    "sparkpowder",
+                    self.teleporter_name,
+                    defaults={
+                        "turn_degrees": getattr(settings, "sparkpowder_turn_degrees", 180),
+                        "look_degrees": getattr(settings, "sparkpowder_look_degrees", 45),
+                        "deposit_profile": "deposit_custom_1_h3",
+                        "deposit_height": self.deposit_height,
+                    },
+                )
+
                 # Stations face the common yaw; Megalab.
-                utils.turn_right(getattr(settings, "sparkpowder_turn_degrees", 180))
+                spark_turn_degrees = _float_or_default(route.get("turn_degrees"), getattr(settings, "sparkpowder_turn_degrees", 180))
+                utils.turn_right(spark_turn_degrees)
                 time.sleep(0.25 * settings.lag_offset)
 
                 # Look up to face the Megalab
-                utils.turn_up(getattr(settings, "sparkpowder_look_degrees", 45))
+                spark_look_degrees = _float_or_default(route.get("look_degrees"), getattr(settings, "sparkpowder_look_degrees", 45))
+                utils.turn_up(spark_look_degrees)
                 time.sleep(0.25 * settings.lag_offset)
 
                 # Open Megalab inventory, transfer existing sparkpowder, then craft more
@@ -197,7 +233,7 @@ class sparkpowder_station(base_task):
                 time.sleep(0.25 * settings.lag_offset)
 
                 # Return pitch back to neutral (we looked up earlier)
-                utils.turn_down(getattr(settings, "sparkpowder_look_degrees", 45))
+                utils.turn_down(spark_look_degrees)
                 time.sleep(0.25 * settings.lag_offset)
 
                 # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned
@@ -205,7 +241,8 @@ class sparkpowder_station(base_task):
                 utils.set_yaw(meta.yaw)
 
                 # Deposit to the station's dedicated storage boxes
-                deposit.dedi_deposit_custom_1(self.deposit_height)
+                route_height = int(route.get("deposit_height", self.deposit_height) or self.deposit_height)
+                _run_station_deposit_profile(route.get("deposit_profile"), route_height, fallback_profile="deposit_custom_1_h3")
                 time.sleep(0.25 * settings.lag_offset)
 
                 # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned
@@ -252,12 +289,12 @@ class charcoal_station(base_task):
         name,
         teleporter_name,
         delay=0,
-        station_yaw=0.0,
-        deposit_teleporter="dedi_deposit_charcoal",
-        deposit_yaw=0.0,
+        station_yaw=None,
+        deposit_teleporter="DEDI_DEPOSIT_CHARCOAL",
+        deposit_yaw=None,
         height=3,
-        wood_withdraw_teleporter_1="wood_dedi_station_1",
-        wood_withdraw_teleporter_2="wood_dedi_station_2",
+        wood_withdraw_teleporter_1="WOOD_DEDI_STATION_1",
+        wood_withdraw_teleporter_2="WOOD_DEDI_STATION_2",
         initial_delay=0,
     ):
         super().__init__()
@@ -266,10 +303,10 @@ class charcoal_station(base_task):
 
         self.delay = float(delay or 0)
         self.initial_delay = float(initial_delay or 0)
-        self.station_yaw = float(station_yaw or 0.0)
+        self.station_yaw = None if station_yaw is None else float(station_yaw)
 
         self.deposit_teleporter = deposit_teleporter
-        self.deposit_yaw = float(deposit_yaw or 0.0)
+        self.deposit_yaw = None if deposit_yaw is None else float(deposit_yaw)
         self.height = int(height or 3)
 
         self.wood_withdraw_teleporter_1 = wood_withdraw_teleporter_1
@@ -290,13 +327,35 @@ class charcoal_station(base_task):
                     return
 
                 meta = custom_stations.get_station_metadata(self.teleporter_name)
+                route = station_routing.get_station_route(
+                    "charcoal",
+                    self.teleporter_name,
+                    defaults={
+                        "station_yaw": self.station_yaw,
+                        "deposit_teleporter": self.deposit_teleporter,
+                        "deposit_yaw": self.deposit_yaw,
+                        "deposit_profile": "deposit_charcoal_h3",
+                        "height": self.height,
+                        "wood_withdraw_teleporter_1": self.wood_withdraw_teleporter_1,
+                        "wood_withdraw_teleporter_2": self.wood_withdraw_teleporter_2,
+                        "wood_withdraw_profile_1": None,
+                        "wood_withdraw_profile_2": None,
+                        "element_withdraw_profile": "withdraw_charcoal_element",
+                    },
+                )
+                station_yaw = route.get("station_yaw")
+                deposit_teleporter = route.get("deposit_teleporter", self.deposit_teleporter)
+                deposit_yaw = route.get("deposit_yaw")
+                deposit_height = int(route.get("height", self.height) or self.height)
+                wood_withdraw_teleporter_1 = route.get("wood_withdraw_teleporter_1", self.wood_withdraw_teleporter_1)
+                wood_withdraw_teleporter_2 = route.get("wood_withdraw_teleporter_2", self.wood_withdraw_teleporter_2)
                 logs.logger.info(f"[Charcoal] Teleport -> Station: {self.teleporter_name}")
                 teleporter.teleport_not_default(meta)
                 time.sleep(0.7 * getattr(settings, "lag_offset", 1.0))
 
                 # Face the forge yaw for this station
                 utils.pitch_zero()
-                utils.set_yaw(self.station_yaw if self.station_yaw is not None else meta.yaw)
+                utils.set_yaw(_float_or_default(station_yaw, meta.yaw))
                 time.sleep(0.3 * getattr(settings, "lag_offset", 1.0))
 
                 # Take charcoal only (filter prevents ingots from being pulled)
@@ -304,30 +363,30 @@ class charcoal_station(base_task):
                 time.sleep(0.4 * getattr(settings, "lag_offset", 1.0))
 
                 # Drop off charcoal
-                logs.logger.info(f"[Charcoal] Teleport -> Dropoff: {self.deposit_teleporter}")
-                drop_meta = custom_stations.get_station_metadata(self.deposit_teleporter)
+                logs.logger.info(f"[Charcoal] Teleport -> Dropoff: {deposit_teleporter}")
+                drop_meta = custom_stations.get_station_metadata(deposit_teleporter)
                 teleporter.teleport_not_default(drop_meta)
                 time.sleep(0.7 * getattr(settings, "lag_offset", 1.0))
 
                 utils.pitch_zero()
-                utils.set_yaw(self.deposit_yaw if self.deposit_yaw is not None else drop_meta.yaw)
+                utils.set_yaw(_float_or_default(deposit_yaw, drop_meta.yaw))
                 time.sleep(0.3 * getattr(settings, "lag_offset", 1.0))
 
-                deposit.dedi_deposit_charcoal(self.height)
+                _run_station_deposit_profile(route.get("deposit_profile"), deposit_height, fallback_profile="deposit_charcoal_h3")
                 time.sleep(0.4 * getattr(settings, "lag_offset", 1.0))
 
                 # Withdraw wood from two wood dedis (placeholders for now)
-                logs.logger.info(f"[Charcoal] Teleport -> Wood Withdraw 1: {self.wood_withdraw_teleporter_1}")
-                w1 = custom_stations.get_station_metadata(self.wood_withdraw_teleporter_1)
+                logs.logger.info(f"[Charcoal] Teleport -> Wood Withdraw 1: {wood_withdraw_teleporter_1}")
+                w1 = custom_stations.get_station_metadata(wood_withdraw_teleporter_1)
                 teleporter.teleport_not_default(w1)
                 time.sleep(0.7 * getattr(settings, "lag_offset", 1.0))
-                withdrawal.wood_dedi_withdraw_placeholder(self.wood_withdraw_teleporter_1)
+                _run_station_withdraw_profile(route.get("wood_withdraw_profile_1"), wood_withdraw_teleporter_1)
 
-                logs.logger.info(f"[Charcoal] Teleport -> Wood Withdraw 2: {self.wood_withdraw_teleporter_2}")
-                w2 = custom_stations.get_station_metadata(self.wood_withdraw_teleporter_2)
+                logs.logger.info(f"[Charcoal] Teleport -> Wood Withdraw 2: {wood_withdraw_teleporter_2}")
+                w2 = custom_stations.get_station_metadata(wood_withdraw_teleporter_2)
                 teleporter.teleport_not_default(w2)
                 time.sleep(0.7 * getattr(settings, "lag_offset", 1.0))
-                withdrawal.wood_dedi_withdraw_placeholder(self.wood_withdraw_teleporter_2)
+                _run_station_withdraw_profile(route.get("wood_withdraw_profile_2"), wood_withdraw_teleporter_2)
 
                 # Return to station
                 logs.logger.info(f"[Charcoal] Teleport -> Station (return): {self.teleporter_name}")
@@ -335,11 +394,11 @@ class charcoal_station(base_task):
                 time.sleep(0.8 * getattr(settings, "lag_offset", 1.0))
 
                 utils.pitch_zero()
-                utils.set_yaw(self.station_yaw if self.station_yaw is not None else meta.yaw)
+                utils.set_yaw(_float_or_default(station_yaw, meta.yaw))
                 time.sleep(0.3 * getattr(settings, "lag_offset", 1.0))
 
                 # Withdraw element (3) from the element dedi adjacent to the station
-                withdrawal.element_withdraw_at_charcoal_station()
+                _run_station_withdraw_profile(route.get("element_withdraw_profile"), self.teleporter_name)
 
                 # Transfer wood+element into forge
                 steam_forge.transfer_all_to_forge()
@@ -353,7 +412,7 @@ class charcoal_station(base_task):
 
                 # Restore station yaw
                 utils.pitch_zero()
-                utils.set_yaw(self.station_yaw if self.station_yaw is not None else meta.yaw)
+                utils.set_yaw(_float_or_default(station_yaw, meta.yaw))
                 return
 
             except Exception as e:
@@ -366,7 +425,7 @@ class charcoal_station(base_task):
                 try:
                     if meta is not None:
                         utils.pitch_zero()
-                        utils.set_yaw(self.station_yaw if self.station_yaw is not None else meta.yaw)
+                        utils.set_yaw(_float_or_default(station_yaw, meta.yaw))
                 except Exception:
                     pass
 
@@ -420,8 +479,19 @@ class gunpowder_station(base_task):
                 utils.pitch_zero()
                 time.sleep(0.15 * settings.lag_offset)
 
+                route = station_routing.get_station_route(
+                    "gunpowder",
+                    self.teleporter_name,
+                    defaults={
+                        "look_degrees": getattr(settings, "gunpowder_look_degrees", 25.0),
+                        "turn_degrees": getattr(settings, "gunpowder_turn_degrees", 180.0),
+                        "deposit_profile": "deposit_custom_2_h3",
+                        "deposit_height": self.deposit_height,
+                    },
+                )
+
                 # Look down to face the Megalab
-                look_deg = abs(float(getattr(settings, "gunpowder_look_degrees", 25.0)))
+                look_deg = abs(_float_or_default(route.get("look_degrees"), getattr(settings, "gunpowder_look_degrees", 25.0)))
                 utils.turn_down(look_deg)
                 time.sleep(0.25 * settings.lag_offset)
 
@@ -454,14 +524,14 @@ class gunpowder_station(base_task):
                 utils.pitch_zero()
                 utils.set_yaw(meta.yaw)
 
-                turn_deg_raw = getattr(settings, "gunpowder_turn_degrees", 180.0)
-                turn_deg = float(turn_deg_raw) if turn_deg_raw is not None else 0.0
+                turn_deg = _float_or_default(route.get("turn_degrees"), getattr(settings, "gunpowder_turn_degrees", 180.0))
                 if abs(turn_deg) > 0.1:
                     utils.turn_right(abs(turn_deg))
                     time.sleep(0.25 * settings.lag_offset)
 
                 # Deposit to the station's dedicated storage boxes
-                deposit.dedi_deposit_custom_2(self.deposit_height)
+                route_height = int(route.get("deposit_height", self.deposit_height) or self.deposit_height)
+                _run_station_deposit_profile(route.get("deposit_profile"), route_height, fallback_profile="deposit_custom_2_h3")
                 time.sleep(0.25 * settings.lag_offset)
 
                 # Restore station-facing yaw + neutral pitch so the next task doesn't start misaligned

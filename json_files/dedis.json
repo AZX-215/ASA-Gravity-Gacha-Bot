@@ -106,5 +106,624 @@
                 "crouched": false
             }
         ]
+    },
+    {
+        "dediID": "profile_sequences",
+        "active": true,
+        "schema_version": 2,
+        "description": "JSON-executed deposit / withdrawal profiles for the live root bot. Existing Caleb dedi entries above remain intact.",
+        "profiles": {
+            "deposit_default_h3": {
+                "active": true,
+                "height": 3,
+                "description": "Legacy dedi_deposit(height=3) sequence preserved in JSON.",
+                "steps": [
+                    {
+                        "action": "turn_up",
+                        "value": 15
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 10,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_right",
+                        "value": 40,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 30
+                    },
+                    {
+                        "action": "turn_down",
+                        "value": 15,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 10
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Crouch",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_right",
+                        "value": 40,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_down",
+                        "value": 30,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 40,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Run"
+                    },
+                    {
+                        "action": "turn_up",
+                        "value": 30
+                    },
+                    {
+                        "action": "turn_right",
+                        "value": 10,
+                        "sleep_after": 0.1
+                    }
+                ]
+            },
+            "deposit_alt_h3": {
+                "active": true,
+                "height": 3,
+                "description": "Your current dedi_deposit_alt(height=3) sequence preserved in JSON.",
+                "steps": [
+                    {
+                        "action": "turn_up",
+                        "value": 15
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 10,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_right",
+                        "value": 40,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 30
+                    },
+                    {
+                        "action": "turn_down",
+                        "value": 15,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 10
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Crouch",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_right",
+                        "value": 40,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_down",
+                        "value": 30,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 40,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Run"
+                    },
+                    {
+                        "action": "turn_up",
+                        "value": 30
+                    },
+                    {
+                        "action": "turn_right",
+                        "value": 10,
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 90,
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "turn_up",
+                        "value": 15,
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "turn_down",
+                        "value": 15,
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Crouch",
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "turn_down",
+                        "value": 15,
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Run"
+                    },
+                    {
+                        "action": "turn_up",
+                        "value": 15,
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "turn_right",
+                        "value": 180,
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "turn_up",
+                        "value": 15,
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "turn_down",
+                        "value": 15,
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Crouch",
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "turn_down",
+                        "value": 15,
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Run"
+                    },
+                    {
+                        "action": "turn_up",
+                        "value": 15,
+                        "sleep_after": 0.4
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 90,
+                        "sleep_after": 0.4
+                    }
+                ]
+            },
+            "deposit_custom_1_h3": {
+                "active": true,
+                "height": 3,
+                "description": "Your current dedi_deposit_custom_1(height=3) sequence preserved in JSON.",
+                "steps": [
+                    {
+                        "action": "turn_up",
+                        "value": 15,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_down",
+                        "value": 30,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_down",
+                        "value": 15,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_up",
+                        "value": 30,
+                        "sleep_after": 0.3
+                    }
+                ]
+            },
+            "deposit_custom_2_h3": {
+                "active": true,
+                "height": 3,
+                "description": "Your current dedi_deposit_custom_2(height=3) sequence preserved in JSON.",
+                "steps": [
+                    {
+                        "action": "turn_up",
+                        "value": 15,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_down",
+                        "value": 20,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_down",
+                        "value": 25,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_up",
+                        "value": 30,
+                        "sleep_after": 0.3
+                    }
+                ]
+            },
+            "deposit_charcoal_h3": {
+                "active": true,
+                "height": 3,
+                "description": "Your custom charcoal deposit sequence preserved in JSON.",
+                "steps": [
+                    {
+                        "action": "turn_up",
+                        "value": 15
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 25,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_right",
+                        "value": 50,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_down",
+                        "value": 30,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 50,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Crouch",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_right",
+                        "value": 50,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Run"
+                    },
+                    {
+                        "action": "turn_up",
+                        "value": 15
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 25,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 180,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_up",
+                        "value": 15
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 15,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_right",
+                        "value": 30,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_down",
+                        "value": 25,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 30,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Crouch",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_right",
+                        "value": 30,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Run"
+                    },
+                    {
+                        "action": "turn_up",
+                        "value": 10
+                    },
+                    {
+                        "action": "turn_left",
+                        "value": 15,
+                        "sleep_after": 0.5
+                    }
+                ]
+            },
+            "withdraw_charcoal_element": {
+                "active": true,
+                "description": "Your current charcoal element withdrawal sequence preserved in JSON.",
+                "steps": [
+                    {
+                        "action": "turn_left",
+                        "value": 90,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_down",
+                        "value": 30,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_up",
+                        "value": 30,
+                        "sleep_after": 0.3
+                    },
+                    {
+                        "action": "turn_right",
+                        "value": 90,
+                        "sleep_after": 0.3
+                    }
+                ]
+            },
+            "withdraw_wood_placeholder_default": {
+                "active": true,
+                "description": "Current placeholder wood withdrawal behavior; can be replaced by station-specific profiles later.",
+                "steps": [
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    }
+                ]
+            },
+            "withdraw_wood_dedi_station_1": {
+                "active": false,
+                "description": "Station-specific override for wood_dedi_station_1. Enable and customize when the build is finalized.",
+                "steps": [
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    }
+                ]
+            },
+            "withdraw_wood_dedi_station_2": {
+                "active": false,
+                "description": "Station-specific override for wood_dedi_station_2. Enable and customize when the build is finalized.",
+                "steps": [
+                    {
+                        "action": "press_key",
+                        "key": "Use",
+                        "sleep_after": 0.3
+                    }
+                ]
+            }
+        }
     }
 ]

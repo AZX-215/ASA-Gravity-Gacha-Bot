@@ -502,14 +502,14 @@ def main():
             ch_tp = entry.get("teleporter") or entry.get("station_name") or entry.get("name")
             ch_delay = entry.get("delay", 0)
             ch_initial = entry.get("initial_delay", 0)
-            ch_yaw = entry.get("station_yaw", 0.0)
+            ch_yaw = entry.get("station_yaw")
 
-            deposit_tp = entry.get("deposit_teleporter", "dedi_deposit_charcoal")
-            deposit_yaw = entry.get("deposit_yaw", 0.0)
+            deposit_tp = entry.get("deposit_teleporter", "DEDI_DEPOSIT_CHARCOAL")
+            deposit_yaw = entry.get("deposit_yaw")
             height = entry.get("height", 3)
 
-            wood_tp_1 = entry.get("wood_withdraw_teleporter_1", "wood_dedi_station_1")
-            wood_tp_2 = entry.get("wood_withdraw_teleporter_2", "wood_dedi_station_2")
+            wood_tp_1 = entry.get("wood_withdraw_teleporter_1", "WOOD_DEDI_STATION_1")
+            wood_tp_2 = entry.get("wood_withdraw_teleporter_2", "WOOD_DEDI_STATION_2")
 
             if not ch_name or not ch_tp:
                 logs.logger.warning(f"[Charcoal] Invalid entry in charcoal.json: {entry}")

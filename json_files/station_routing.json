@@ -1,0 +1,74 @@
+{
+  "sparkpowder": {
+    "defaults": {
+      "turn_degrees": 180,
+      "look_degrees": 45,
+      "deposit_profile": "deposit_custom_1_h3",
+      "deposit_height": 3
+    },
+    "stations": {
+      "GACHA-SPARK #001": {},
+      "GACHA-SPARK #002": {},
+      "GACHA-SPARK #003": {},
+      "GACHA-SPARK #004": {}
+    }
+  },
+  "gunpowder": {
+    "defaults": {
+      "look_degrees": 25,
+      "turn_degrees": 180,
+      "deposit_profile": "deposit_custom_2_h3",
+      "deposit_height": 3
+    },
+    "stations": {
+      "SN MEGALAB #001.": {},
+      "SN MEGALAB #002.": {},
+      "SN MEGALAB #003.": {},
+      "SN MEGALAB #004.": {},
+      "SN MEGALAB #005.": {},
+      "SN MEGALAB #006.": {},
+      "SN MEGALAB #007.": {},
+      "SN MEGALAB #008.": {}
+    }
+  },
+  "charcoal": {
+    "defaults": {
+      "station_yaw": null,
+      "deposit_teleporter": "DEDI_DEPOSIT_CHARCOAL",
+      "deposit_yaw": null,
+      "deposit_profile": "deposit_charcoal_h3",
+      "height": 3,
+      "wood_withdraw_teleporter_1": "WOOD_DEDI_STATION_1",
+      "wood_withdraw_teleporter_2": "WOOD_DEDI_STATION_2",
+      "wood_withdraw_profile_1": "withdraw_wood_placeholder_default",
+      "wood_withdraw_profile_2": "withdraw_wood_placeholder_default",
+      "element_withdraw_profile": "withdraw_charcoal_element"
+    },
+    "stations": {
+      "SN_FORGE_#001": {},
+      "SN_FORGE_#002": {},
+      "SN_FORGE_#003": {},
+      "SN_FORGE_#004": {},
+      "SN_FORGE_#005": {},
+      "SN_FORGE_#006": {},
+      "SN_FORGE_#007": {},
+      "SN_FORGE_#008": {},
+      "SN_FORGE_#009": {},
+      "SN_FORGE_#010": {},
+      "SN_FORGE_#011": {},
+      "SN_FORGE_#012": {},
+      "SN_FORGE_#013": {},
+      "SN_FORGE_#014": {},
+      "SN_FORGE_#015": {},
+      "SN_FORGE_#016": {},
+      "SN_FORGE_#017": {},
+      "SN_FORGE_#018": {},
+      "SN_FORGE_#019": {},
+      "SN_FORGE_#020": {},
+      "SN_FORGE_#021": {},
+      "SN_FORGE_#022": {},
+      "SN_FORGE_#023": {},
+      "SN_FORGE_#024": {}
+    }
+  }
+}
