@@ -14,14 +14,11 @@ import ASA.structures.inventory
 import ASA.player.player_inventory
 import bot.config
 import json
-from bot import dedi_profiles
-
 
 def load_resolution_data(file_path):
     with open(file_path, 'r') as file:
         data = json.load(file)
     return data
-
 
 def open_crystals():
     count = 0
@@ -30,8 +27,7 @@ def open_crystals():
             utils.press_key(f"UseItem{x+1}")
             count += 1
 
-
-def _dedi_deposit_default_fallback(height):
+def dedi_deposit(height):
     if height == 3:
         utils.turn_up(15)
         utils.turn_left(10)
@@ -66,17 +62,11 @@ def _dedi_deposit_default_fallback(height):
         utils.turn_up(30)
         utils.turn_right(10)
         time.sleep(0.1*settings.lag_offset)
+
     else:
-        logs.logger.warning(f"dedi_deposit: unsupported height={height}; no action taken")
+        logs.logger.warning(f"dedi_deposit: unsupported height={height}; no action taken") #customize here if else.
 
-
-def dedi_deposit(height):
-    if dedi_profiles.execute_profile("deposit_default_h3", expected_height=height, context="dedi_deposit"):
-        return
-    _dedi_deposit_default_fallback(height)
-
-
-def _dedi_deposit_alt_fallback(height):
+def dedi_deposit_alt(height):
     if height == 3:
         utils.turn_up(15)
         utils.turn_left(10)
@@ -151,17 +141,12 @@ def _dedi_deposit_alt_fallback(height):
         time.sleep(0.4*settings.lag_offset)
         utils.turn_left(90)
         time.sleep(0.4*settings.lag_offset)
+
     else:
-        logs.logger.warning(f"dedi_deposit_alt: unsupported height={height}; no action taken")
+        logs.logger.warning(f"dedi_deposit_alt: unsupported height={height}; no action taken") #customize here if else.
 
 
-def dedi_deposit_alt(height):
-    if dedi_profiles.execute_profile("deposit_alt_h3", expected_height=height, context="dedi_deposit_alt"):
-        return
-    _dedi_deposit_alt_fallback(height)
-
-
-def _dedi_deposit_custom_1_fallback(height):
+def dedi_deposit_custom_1(height):
     if height == 3:
         utils.turn_up(15)
         time.sleep(0.3*settings.lag_offset)
@@ -177,17 +162,11 @@ def _dedi_deposit_custom_1_fallback(height):
         time.sleep(0.3*settings.lag_offset)
         utils.turn_up(30)
         time.sleep(0.3*settings.lag_offset)
+
     else:
-        logs.logger.warning(f"dedi_deposit_custom_1: unsupported height={height}; no action taken")
+        logs.logger.warning(f"dedi_deposit_custom_1: unsupported height={height}; no action taken") #customize here if else.
 
-
-def dedi_deposit_custom_1(height):
-    if dedi_profiles.execute_profile("deposit_custom_1_h3", expected_height=height, context="dedi_deposit_custom_1"):
-        return
-    _dedi_deposit_custom_1_fallback(height)
-
-
-def _dedi_deposit_custom_2_fallback(height):
+def dedi_deposit_custom_2(height):
     if height == 3:
         utils.turn_up(15)
         time.sleep(0.3*settings.lag_offset)
@@ -203,14 +182,9 @@ def _dedi_deposit_custom_2_fallback(height):
         time.sleep(0.3*settings.lag_offset)
         utils.turn_up(30)
         time.sleep(0.3*settings.lag_offset)
+
     else:
-        logs.logger.warning(f"dedi_deposit_custom_2: unsupported height={height}; no action taken")
-
-
-def dedi_deposit_custom_2(height):
-    if dedi_profiles.execute_profile("deposit_custom_2_h3", expected_height=height, context="dedi_deposit_custom_2"):
-        return
-    _dedi_deposit_custom_2_fallback(height)
+        logs.logger.warning(f"dedi_deposit_custom_2: unsupported height={height}; no action taken") #customize here if else.
 
 
 def vault_deposit(items, metadata):
@@ -245,14 +219,12 @@ def vault_deposit(items, metadata):
     utils.turn_left(90*turn_constant)
     time.sleep(0.2*settings.lag_offset)
 
-
 def drop_useless():
     ASA.player.player_inventory.open()
     if template.check_template("inventory",0.7):
         ASA.player.player_inventory.drop_all_inv()
         time.sleep(0.2*settings.lag_offset)
     ASA.player.player_inventory.close()
-
 
 def depo_grinder(metadata):
     utils.turn_right(180)
@@ -281,7 +253,6 @@ def depo_grinder(metadata):
     template.template_await_false(template.check_template,1,"inventory",0.7)
     time.sleep(0.2*settings.lag_offset)
     utils.turn_right(180)
-
 
 def collect_grindables(metadata):
     utils.turn_right(90)
@@ -364,7 +335,6 @@ def collect_grindables(metadata):
 
     drop_useless()
 
-
 def vaults(metadata):
     vaults_data = load_resolution_data("json_files/vaults.json")
     for entry_vaults in vaults_data:
@@ -374,7 +344,6 @@ def vaults(metadata):
         metadata.side = side
         logs.logger.debug(f"openening up {name} on the {side} side to depo{items}")
         vault_deposit(items,metadata)
-
 
 def deposit_all(metadata):
     #utils.pitch_zero()
@@ -396,7 +365,9 @@ def deposit_all(metadata):
 
 
 
-def _dedi_deposit_charcoal_fallback(height):
+
+
+def dedi_deposit_charcoal(height):
     """Custom charcoal deposit routine.
 
     This is intentionally a dedicated station/teleporter and may require a custom yaw.
@@ -465,9 +436,3 @@ def _dedi_deposit_charcoal_fallback(height):
         time.sleep(0.5*settings.lag_offset)
     else:
         logs.logger.warning(f"dedi_deposit_charcoal: unsupported height={height}; no action taken")
-
-
-def dedi_deposit_charcoal(height):
-    if dedi_profiles.execute_profile("deposit_charcoal_h3", expected_height=height, context="dedi_deposit_charcoal"):
-        return
-    _dedi_deposit_charcoal_fallback(height)
