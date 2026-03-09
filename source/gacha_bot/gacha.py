@@ -69,6 +69,8 @@ def drop_off(metadata): #drop off for 150 stacks of seeds
         time.sleep(0.2*settings.lag_offset)
         inventory.open()
     if template.check_template("crop_plot",0.7):
+        ASA.structures.inventory.search_in_object("Y")
+        time.sleep(0.3*settings.lag_offset)
         inventory.transfer_all_from()
         time.sleep(0.2*settings.lag_offset)
         player_inventory.transfer_all_inventory() #take out all input all # refreshing owl pelletes
