@@ -84,6 +84,11 @@ def click_roi_anchor(
         )
 
         for _ in range(max(1, int(clicks))):
+            # Move the real cursor into place before posting the click.
+            # This makes the Auto Stack interaction visible during testing and
+            # helps with UI states that behave better when the cursor is already hovering the target.
+            windows.move_mouse(x, y)
+            time.sleep(0.03 * settings.lag_offset)
             windows.click(x, y)
             time.sleep(0.05 * settings.lag_offset)
 

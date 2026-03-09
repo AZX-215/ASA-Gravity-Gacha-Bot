@@ -43,8 +43,8 @@ data = {
     "back_button_tp_x": 240,
     "back_button_tp_y": 1285,
     # Auto Stack button (structure inventory)
-    "auto_stack_x": 2230,
-    "auto_stack_y": 200,
+    "auto_stack_x": 2174,
+    "auto_stack_y": 263,
 }
 
 def get_pixel_loc(location: str):
