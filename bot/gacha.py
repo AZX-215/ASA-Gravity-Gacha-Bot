@@ -93,6 +93,10 @@ def drop_off(metadata): #drop off for 150 stacks of seeds
         ASA.structures.inventory.open()
         time.sleep(0.3*settings.lag_offset)
     if ASA.structures.inventory.is_open():
+        ASA.player.player_inventory.search_in_inventory("trap")
+        time.sleep(0.2*settings.lag_offset)
+        ASA.player.player_inventory.transfer_all_inventory()
+        time.sleep(0.2*settings.lag_offset)
         ASA.player.player_inventory.search_in_inventory("seed")
         time.sleep(0.2*settings.lag_offset)
         ASA.player.player_inventory.transfer_all_inventory()
