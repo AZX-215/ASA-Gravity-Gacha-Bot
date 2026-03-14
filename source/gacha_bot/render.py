@@ -68,7 +68,7 @@ def leave_tekpod():
     utils.press_key(local_player.get_input_settings("Use"))
     time.sleep(1*settings.lag_offset)
     buff = buffs.check_buffs()
-    if buff.check_buffs == 1:
+    if buff.check_buffs() == 1:
         time.sleep(3)
         logs.logger.warning("bot didnt leave the tekpod first try we are retrying now")
         utils.press_key(local_player.get_input_settings("Use"))

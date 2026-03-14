@@ -13,5 +13,5 @@ class forge(structures.structure_inventory):
             windows.click(1270,1175)
             
     def open_forge(self):
-        open()
+        self.open()
         self.turn_on()
