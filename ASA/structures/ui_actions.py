@@ -84,6 +84,8 @@ def click_roi_anchor(
         )
 
         for _ in range(max(1, int(clicks))):
+            windows.move_mouse(x, y)
+            time.sleep(0.03 * settings.lag_offset)
             windows.click(x, y)
             time.sleep(0.05 * settings.lag_offset)
 
